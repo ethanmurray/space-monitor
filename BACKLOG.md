@@ -15,7 +15,10 @@ substrate this needs is much wider than what we capture today (only one
 table; no signals beyond partnerships).
 
 The P0/P1 work below is now organized around expanding the *data layer*
-underneath that briefing. UI is explicitly deferred (see P2 web-UI item).
+underneath that briefing. **Update**: with breadth at a comfortable plateau
+(26 adapters, daily ingest live on Turso via GitHub Actions), the next
+major phase is the **analyst UI** — see the new "Phase 2: analyst UI"
+section near the end of this file for the planning thread.
 
 ## P0 — foundations for the briefing data layer
 
@@ -110,18 +113,6 @@ underneath that briefing. UI is explicitly deferred (see P2 web-UI item).
 
 ### Discovery (new article surfaces beyond polling known feeds)
 
-- [ ] **Google News RSS-search adapter.** `https://news.google.com/rss/search?q=QUERY`
-      returns up to 100 most-recent articles per query, no API key, free.
-      Add a `GNewsSearchSource` that takes a list of query strings, dedupes
-      against existing `news_article.url_hash`, and yields the rest.
-      Suggested initial queries (~15): "space partnership", "satellite
-      launch contract", "space cooperation agreement", "ground station
-      agreement", "space technology transfer", "lunar mission", "earth
-      observation satellite", "space agency announces", "satellite
-      constellation", plus per-priority-country watchlist queries. **Catches
-      the long tail of one-off mentions on sites we don't poll.** ~$0/month
-      for the search itself; cost lives in the downstream extraction.
-
 - [ ] **GDELT integration.** GDELT's Global Knowledge Graph already
       classifies news events worldwide by topic + country, updated every 15
       min, free, with SQL/BigQuery interface. Filter for space-related
@@ -166,9 +157,11 @@ Today our 12 sources lean US/EU. The countries where partnerships are most
       US Strategic Command (the workbook tally suggests these are
       under-covered).
 
-- [ ] **Defense / industry trade press**: defensenews.com,
-      breakingdefense.com, payloadspace.com, spacepolicyonline.com,
-      thespacereview.com, NASASpaceflight.com — most have RSS.
+- [ ] **Defense / industry trade press**: shipped — defensenews,
+      breakingdefense, payloadspace, spacepolicyonline, nasaspaceflight
+      all live with RSS. Only `thespacereview` still deferred (no RSS,
+      monthly cadence; could use the ISRO-style two-step pattern when
+      worth the time).
 
 - [ ] **Academic feeds**: arXiv (specifically `astro-ph.IM` instrumentation
       and `eess.SP` signal processing) — capability tracking, not news. Free
@@ -206,10 +199,10 @@ Today our 12 sources lean US/EU. The countries where partnerships are most
       - unoosa.org (UN office; current site returns 404 on common paths)
       Cost-rank these against expected partnership yield before building.
 
-- [ ] **Web UI for the review queue.** CLI is fine for proof-of-life; a
-      simple web page (FastAPI + a single HTMX template) where the analyst
-      sees the source article and the proposed draft side-by-side and clicks
-      approve / edit / reject would 5-10× analyst throughput.
+- [ ] **Web UI for the review queue.** Superseded by the broader "Phase 2:
+      analyst UI" planning thread near the bottom of this file — the
+      review queue is one feature in a larger UI, not a standalone item
+      anymore.
 
 ## P3 — long-term roadmap items
 
@@ -411,3 +404,41 @@ pre-Jan-2026 announcements from high-volume feeds.
     13:00 UTC daily. Idempotent (RSS feeds carry the last ~10–30 entries
     + url_hash dedup). Three secrets required: ``ANTHROPIC_API_KEY``,
     ``TURSO_DATABASE_URL``, ``TURSO_AUTH_TOKEN``. Setup steps in README.
+
+---
+
+## Phase 2: analyst UI (planning thread, in progress)
+
+**Status:** breadth work has reached a comfortable plateau (26 adapters,
+25 working; daily ingest live on Turso via GitHub Actions; cost ~$30-60/mo
+infra-free). Marginal value of more adapters is small — Google News
+discovery already catches the long tail. Time to design the UI layer.
+
+The UI is what the analyst (or the traveling government leader) actually
+*uses*. Today the system produces structured drafts in Turso; nothing
+exposes them outside `space-monitor review list`. The UI is the bridge.
+
+**Open design questions** (to be resolved in the planning conversation):
+
+- Audience: is it just for the owner, or for a team / customers?
+- Latency tolerance: pre-built static briefings vs on-demand live
+  generation?
+- Coverage shape: all ~200 countries equally, or a watchlist of priority
+  countries deeply?
+- The five product shapes from the earlier brainstorm (CLI briefer,
+  static per-country pages, watchlist+digest, hosted multi-user product,
+  AI-first on-demand) — which fits best?
+- Tech stack: FastAPI + HTMX, Next.js + Supabase, plain Python + Jinja
+  static-site, Streamlit, something else?
+
+**Pre-existing constraints from the data layer:**
+
+- Drafts and articles already live in Turso → any UI can read directly via
+  libsql / HTTP API.
+- Country-tagging layer (P0 above) is *still un-built*. Without it, "show
+  me everything about Japan" queries can only join through partnership
+  rows. The UI design should account for this — either build country-
+  tagging first, or design around partnership-only filtering and add
+  per-article country tags later.
+- Multi-signal extractor (P0 above) is also un-built. Today every UI view
+  of "what's happening" is filtered through the partnership lens.

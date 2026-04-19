@@ -135,7 +135,7 @@ sources.iter_candidates()  ──▶  prefilter (LLM, optional, per-source)
 
 ## Sources
 
-12 adapters registered, 11 working. One disabled awaiting the Playwright
+26 adapters registered, 25 working. One disabled awaiting the Playwright
 fetcher (P2 in BACKLOG.md).
 
 | Adapter         | Type      | Workbook tally | Prefilter | Notes |
@@ -283,8 +283,11 @@ src/space_monitor/
   taxonomy.py            # typed access to data/taxonomy.json + extractor
   db.py                  # all SQLite DDL (workbook + pipeline tables)
   load.py                # per-sheet xlsx → SQLite loaders
+  bootstrap.py           # seed-CSV initialization (no xlsx required)
   data/
     taxonomy.json        # extracted controlled vocabularies + scoring rubrics
+    seed/
+      partnership.csv    # 7,614-row partnership seed (bundled, gitignored xlsx-derived)
   pipeline/
     __init__.py
     cli.py               # `ingest` and `review` subcommands
@@ -294,23 +297,32 @@ src/space_monitor/
     drafts.py            # draft insert + promotion logic
     sources/
       base.py            # CandidateArticle + Source protocol
-      _rss.py            # shared RSS adapter base class
-      nasa.py
-      spacenews.py
-      esa.py
+      _rss.py            # shared RSS adapter base class (httpx-fetched)
+      # 18 RSS sources:
+      nasa.py            spacenews.py        esa.py
       govuk.py           # prefilter_required=True
-      spacewatch.py      # disabled=True
-      satnews.py
-      satellitetoday.py
-      mundogeo.py
+      spacewatch.py      # disabled=True (Cloudflare; awaiting Playwright)
+      satnews.py         satellitetoday.py   mundogeo.py
       asianscientist.py  # prefilter_required=True
-      skao.py            # HTML scraper
-      eusst.py           # HTML scraper
-      disdg.py           # HTML scraper
+      asi.py             payloadspace.py     nasaspaceflight.py
+      spacepolicyonline.py  philsa.py        csa.py
+      breakingdefense.py defensenews.py      sansa.py     # all prefilter_required=True
+      # 6 HTML scrapers:
+      skao.py            eusst.py            disdg.py
+      cnes.py            inpe.py             isa.py
+      uae.py             # registered but JS-rendered; awaiting Playwright
+      isro.py            # two-step: discover from homepage, parse date from each article
+      # 1 search adapter:
+      gnews.py           gnews_queries.py    # Google News RSS-search across ~30 queries
 scripts/
   eval_prefilter.py      # eval fixture for the title classifier
+  export_seed.py         # regenerate data/seed/*.csv from a loaded DB
 
-Space_Dashboard_Hardcopy.xlsx     # source artifact (input only)
+.github/workflows/
+  bootstrap.yml          # one-time DB init (manual trigger)
+  daily-ingest.yml       # `space-monitor ingest --source all` daily at 13:00 UTC
+
+Space_Dashboard_Hardcopy.xlsx     # source artifact (gitignored; not required for runtime)
 Space_Dashboard_Summary.md        # per-sheet analysis + automation roadmap
 BACKLOG.md                        # prioritized open items + DONE list
 README.md                         # this file
