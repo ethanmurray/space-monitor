@@ -31,44 +31,55 @@ pip install -e .
 cp .env.example .env
 $EDITOR .env  # set ANTHROPIC_API_KEY=sk-ant-...
 
-# 3. Discover + extract partnership drafts from one source
+# 3. One-time: initialize the database from bundled seed data.
+#    Creates ./space_monitor.db with the schema, taxonomy, and the
+#    historical `partnership` table (used for duplicate detection and
+#    the prefilter eval). No xlsx required.
+space-monitor bootstrap
+
+# 4. Discover + extract partnership drafts from one source
 space-monitor ingest --source spacenews --max-candidates 5
 
-# 4. Review what was found
+# 5. Review what was found
 space-monitor review list
 space-monitor review show <draft-id>
 space-monitor review approve <draft-id> --reviewer your-name
 space-monitor review reject  <draft-id> --reviewer your-name --reason "…"
 ```
 
-The pipeline runs end-to-end with just steps 1–4. `data/taxonomy.json` ships
-with the package; the live news sources + Claude provide everything else.
+The pipeline runs end-to-end with just steps 1–5. The bundled
+`data/taxonomy.json` + `data/seed/partnership.csv` provide everything the
+runtime code needs; live news sources + Claude provide the rest.
 
-## Optional: load the source workbook
+## Optional: refresh from the source workbook
 
-`Space_Dashboard_Hardcopy.xlsx` is **not** committed to this repo (it's
-analyst-curated proprietary data). Place your copy at the repo root, then:
+`Space_Dashboard_Hardcopy.xlsx` is **not** committed (it's analyst-curated
+proprietary data, and the bundled seed CSV covers what the code needs). Run
+these only when the workbook itself is updated and you want to refresh the
+bundled artifacts:
 
 ```bash
 # Regenerate data/taxonomy.json from the workbook's Data Validation Lists sheet.
-# Re-run when the workbook's controlled vocabularies change.
 space-monitor extract-taxonomy Space_Dashboard_Hardcopy.xlsx
 
-# Load all 17 sheets into ./space_monitor.db (also gitignored).
+# Load all 17 sheets (full data, including the 60K-row historical tables
+# that don't ship in the seed: space_assets, industry, defense_spending,
+# etc.). Overwrites your space_monitor.db.
 space-monitor load Space_Dashboard_Hardcopy.xlsx
+
+# After either of the above, regenerate the bundled seed CSVs:
+python scripts/export_seed.py
 ```
 
-What this unlocks:
+What `load` unlocks beyond what `bootstrap` provides:
+- The full press-release `description` column on partnerships (dropped from
+  the seed for size).
+- Direct queries against the historical reference tables — space_assets,
+  industry_company, defense_spending, investment_outlook, industrial_base
+  scores, vc_deals, the city gazetteer, etc.
 
-- **Duplicate detection at promotion** — `space-monitor review approve`
-  flags drafts whose parties + year overlap with an existing curated
-  partnership.
-- **`scripts/eval_prefilter.py`** — uses 50 real partnership names from the
-  workbook as the YES set for the title classifier eval.
-- **Direct queries** against the loaded historical data (assets,
-  partnerships, industry, defense spending, etc.) for analyst use.
-
-The pipeline itself does not need the workbook to run.
+The pipeline itself does not need any of this to ingest news and produce
+drafts.
 
 ---
 

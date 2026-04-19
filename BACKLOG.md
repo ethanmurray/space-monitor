@@ -213,3 +213,10 @@ pre-Jan-2026 announcements from high-volume feeds.
   (spacenews, nasa, esa, govuk, satnews, satellitetoday, mundogeo,
   asianscientist, spacewatch) + 3 scrapers (skao, eusst, disdg). SpaceWatch
   marked `disabled=True` awaiting the Playwright fetcher item in P2.
+- **Decoupled from the source xlsx.** The runtime now bootstraps from
+  bundled `data/taxonomy.json` + `data/seed/partnership.csv` (3 MB, 7,614
+  rows × 27 cols — `description` excerpt dropped to halve size; the full
+  workbook still recoverable via `space-monitor load <xlsx>` for anyone
+  with a copy). New `space-monitor bootstrap` command initializes a fresh
+  DB with no xlsx required. `scripts/export_seed.py` regenerates the seed
+  CSV from a fully-loaded DB.

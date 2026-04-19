@@ -7,7 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import load, taxonomy
+from . import bootstrap, load, taxonomy
 from .pipeline import cli as pipeline_cli
 
 
@@ -38,6 +38,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Output SQLite path (default: ./space_monitor.db)",
     )
 
+    p_boot = sub.add_parser(
+        "bootstrap",
+        help="Initialize a fresh DB from bundled seed data (no xlsx required).",
+    )
+    p_boot.add_argument(
+        "--db",
+        type=Path,
+        default=Path("space_monitor.db"),
+        help="Output SQLite path (default: ./space_monitor.db)",
+    )
+
     pipeline_cli.add_subcommands(sub)
 
     args = parser.parse_args(argv)
@@ -53,6 +64,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Loaded {args.xlsx} -> {args.db}")
         for sheet, n in counts.items():
             print(f"  {sheet:<{width}}  {n:>8,} rows")
+        return 0
+
+    if args.cmd == "bootstrap":
+        counts = bootstrap.bootstrap_db(args.db)
+        width = max(len(k) for k in counts)
+        print(f"Bootstrapped {args.db} from bundled seed data")
+        for label, n in counts.items():
+            print(f"  {label:<{width}}  {n:>8,} rows")
         return 0
 
     if hasattr(args, "func"):
