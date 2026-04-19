@@ -4,7 +4,42 @@ Open items in priority order. Items marked **DONE** are recorded for context.
 
 ---
 
-## P0 — operational hygiene (do before scaling up)
+## North star — the country briefing
+
+Working hypothesis (see conversation log for the full brainstorm): the
+deliverable a top space-industry leader actually wants is an on-demand
+**country briefing** — state of play, recent activity, key actors, partnership
+landscape, opportunity gaps — for any country they're traveling to. The data
+substrate this needs is much wider than what we capture today (only one
+`partnership_draft` per article; no country-tagging on the raw `news_article`
+table; no signals beyond partnerships).
+
+The P0/P1 work below is now organized around expanding the *data layer*
+underneath that briefing. UI is explicitly deferred (see P2 web-UI item).
+
+## P0 — foundations for the briefing data layer
+
+- [ ] **Country-tagging layer for every fetched article.** Add a
+      `news_article_country` table: `(article_id, country, centrality)` where
+      centrality is `central` (article subject) or `mentioned`. After every
+      fetch — partnership or not — one cheap Haiku call returns the country
+      list. Unlocks "show me everything about Vietnam in the last 90 days"
+      without changing the extraction layer. Foundational for any per-country
+      briefing query. ~1 day of work; <$0.001/article.
+
+- [ ] **Multi-signal extractor** (replaces the binary partnership/not flow).
+      Today every article either becomes a `partnership_draft` or is
+      discarded — losing contracts, leadership moves, program milestones,
+      strategy publications, budget announcements that are right there in
+      the same articles we already paid to fetch. Replace with a router that
+      tags each article as one or more of:
+      `partnership`, `contract`, `program_milestone`, `launch`,
+      `leadership_change`, `strategy_publication`, `budget_announcement`.
+      Each gets its own small schema and draft table. Same review CLI shape.
+      Start with just `partnership + contract + leadership_change` (richest
+      three for the briefing use case) and add the rest as they prove
+      worthwhile. **This is where the system gets 5-10x more useful per
+      ingested article.**
 
 - [ ] **Geocoding service** *(roadmap step 2)*. Replace the 42,905-row
       `LatLong Auto-Tagging` sheet with either (a) a queryable SQLite
@@ -14,10 +49,11 @@ Open items in priority order. Items marked **DONE** are recorded for context.
       records get coordinates at write time without copying the whole
       gazetteer around.
 
-
 - [ ] **Reset / re-extract CLI.** When the prompt or schema changes, you need
       a clean way to wipe drafts and re-run extraction over already-fetched
-      articles. Currently I reset by hand with raw SQL.
+      articles. Currently I reset by hand with raw SQL. Becomes critical when
+      multi-signal extraction lands — you'll want to re-process the whole
+      `news_article` history through the new extractor.
 
 ## P1 — quality + cost wins
 
@@ -72,6 +108,68 @@ Open items in priority order. Items marked **DONE** are recorded for context.
 
 ## P2 — broader source coverage
 
+### Discovery (new article surfaces beyond polling known feeds)
+
+- [ ] **Google News RSS-search adapter.** `https://news.google.com/rss/search?q=QUERY`
+      returns up to 100 most-recent articles per query, no API key, free.
+      Add a `GNewsSearchSource` that takes a list of query strings, dedupes
+      against existing `news_article.url_hash`, and yields the rest.
+      Suggested initial queries (~15): "space partnership", "satellite
+      launch contract", "space cooperation agreement", "ground station
+      agreement", "space technology transfer", "lunar mission", "earth
+      observation satellite", "space agency announces", "satellite
+      constellation", plus per-priority-country watchlist queries. **Catches
+      the long tail of one-off mentions on sites we don't poll.** ~$0/month
+      for the search itself; cost lives in the downstream extraction.
+
+- [ ] **GDELT integration.** GDELT's Global Knowledge Graph already
+      classifies news events worldwide by topic + country, updated every 15
+      min, free, with SQL/BigQuery interface. Filter for space-related
+      themes + recency, dedup against our DB, route through fetch+extract.
+      Higher signal than raw search; complements Google News for breadth.
+
+- [ ] **Domain mining from existing `news_article` URLs.** Parse outgoing
+      links from cleaned article bodies; tally domains we don't yet have
+      adapters for. Surface the top-N as adapter candidates. Cheap meta-
+      analysis, runs as a periodic report.
+
+- [ ] **Tavily / Exa search API.** Paid (~$0.01/query) but designed for LLM
+      agents — returns clean snippets with the LLM-extraction step in mind.
+      Better signal than raw Google search. Useful if Google News RSS proves
+      too noisy.
+
+### Sources to add as first-class adapters (focused on coverage gaps)
+
+Today our 12 sources lean US/EU. The countries where partnerships are most
+*interesting* are the ones we cover thinnest. Priority adds:
+
+- [ ] **National space agencies**: ISRO (India), JAXA (Japan), KARI (South
+      Korea), CNES (France), DLR (Germany), ASI (Italy), UK Space Agency,
+      INPE (Brazil), UAE Space Agency, ROSCOSMOS, CSA (Canada), SANSA
+      (South Africa), AEB (Brazil), philsa.gov.ph (Philippines), VNSC
+      (Vietnam). Most have RSS or scrapeable indices; each is ~30 lines of
+      code. Quality-rank by feed health before building all 15.
+
+- [ ] **US military space**: Space Force public affairs, US Space Command,
+      US Strategic Command (the workbook tally suggests these are
+      under-covered).
+
+- [ ] **Defense / industry trade press**: defensenews.com,
+      breakingdefense.com, payloadspace.com, spacepolicyonline.com,
+      thespacereview.com, NASASpaceflight.com — most have RSS.
+
+- [ ] **Academic feeds**: arXiv (specifically `astro-ph.IM` instrumentation
+      and `eess.SP` signal processing) — capability tracking, not news. Free
+      RSS. Useful for "is this country publishing on X?" signals.
+
+- [ ] **Procurement portals** (deferred until pattern matures): SAM.gov
+      (US), TED (EU), DASA (UK). Rich source of contracts but each is its
+      own integration. May be more cost-effective via the multi-signal
+      extractor catching contract announcements in news than scraping
+      portals directly.
+
+### Existing source-coverage items
+
 - [ ] **Playwright-based fetcher** for Cloudflare-protected sites
       (SpaceWatch is the immediate one; SatelliteToday and gov.uk may also
       grow stricter). Run as a separate `fetch_browser()` path that the
@@ -102,6 +200,13 @@ Open items in priority order. Items marked **DONE** are recorded for context.
       approve / edit / reject would 5-10× analyst throughput.
 
 ## P3 — long-term roadmap items
+
+- [ ] **People extraction layer.** Add a `person_mention` table linking
+      people → roles → orgs → countries. Extracted alongside the multi-
+      signal pass. The "who runs ISRO right now" answer is the most stable
+      anchor in this domain — orgs change names, programs come and go, but
+      the person leading them at any moment is always relevant for "who do
+      I meet on this trip" briefings.
 
 - [ ] **Scoring rubrics as deterministic functions** *(roadmap step 5)*.
       Codify the Space Assets composite score (Coverage × Mass × Launch Year
