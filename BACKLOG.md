@@ -369,3 +369,19 @@ pre-Jan-2026 announcements from high-volume feeds.
   Agency / INPE (HTML index returns content but article-link pattern
   unclear without DOM inspection), thespacereview, ROSCOSMOS, CSA, ISA
   Israel (all RSS endpoints failed). Re-attempt these in a future round.
+- **Round 5: 3 more adapters** — CSA (Canadian Space Agency, RSS at
+  ``/rss/default_eng.xml``), INPE (Brazilian, HTML scrape with DD/MM/YYYY
+  dates and partnership-heavy content), ISA (Israel Space Agency, HTML
+  scrape with numeric article IDs and DD.MM.YYYY dates). ISA's first live
+  extraction surfaced a high-confidence Israel-US partnership.
+- **`_rss.py` base class refactored** to fetch via ``httpx`` (browser UA,
+  follow_redirects=True, certifi-backed SSL) instead of letting feedparser
+  do its own urllib request. Fixes CSA's ``CERTIFICATE_VERIFY_FAILED`` (gov
+  of Canada CA chain not in Python's bundled urllib root store) and is
+  more permissive in general. All 16 existing RSS adapters re-validated.
+- **Source registry now: 25 adapters, 24 working.** Still deferred:
+  - **JS-rendered** (need Playwright in P2): UAE Space Agency, KARI, DLR
+  - **No dated news index** (would need per-article date fetching): ISRO
+  - **Geo-blocked from this environment**: ROSCOSMOS (403 + expired SSL on
+    en.roscosmos.ru)
+  - **No RSS feed**: thespacereview

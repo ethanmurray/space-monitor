@@ -164,6 +164,9 @@ fetcher (P2 in BACKLOG.md).
 | `sansa`         | RSS       | n/a            | **yes**   | South African National Space Agency (mixed content) |
 | `breakingdefense` | RSS     | n/a            | **yes**   | Defense industry trade press (mostly non-space; prefilter culls) |
 | `defensenews`   | RSS       | n/a            | **yes**   | Same posture as Breaking Defense |
+| `csa`           | RSS       | n/a            | —         | Canadian Space Agency (Lunar Gateway, Canadarm) |
+| `inpe`          | scraper   | 67             | —         | Brazilian INPE — Portuguese; partnership-heavy content |
+| `isa`           | scraper   | n/a            | —         | Israel Space Agency — English |
 
 `prefilter_required = True` routes that source's titles through a batched LLM
 classifier (`pipeline/prefilter.py`) before any fetch. Per-source opt-in

@@ -13,12 +13,15 @@ from .asianscientist import AsianScientistSource
 from .base import CandidateArticle, Source
 from .breakingdefense import BreakingDefenseSource
 from .cnes import CnesSource
+from .csa import CsaSource
 from .defensenews import DefenseNewsSource
 from .disdg import DisDgSource
 from .esa import EsaSource
 from .eusst import EusstSource
 from .gnews import GNewsSource
 from .govuk import GovUkSource
+from .inpe import InpeSource
+from .isa import IsaSource
 from .mundogeo import MundoGeoSource
 from .nasa import NasaSource
 from .nasaspaceflight import NasaSpaceflightSource
@@ -31,6 +34,7 @@ from .skao import SkaoSource
 from .spacenews import SpaceNewsSource
 from .spacepolicyonline import SpacePolicyOnlineSource
 from .spacewatch import SpaceWatchSource
+from .uae import UaeSpaceSource
 
 REGISTRY: dict[str, Source] = {
     "spacenews": SpaceNewsSource(),
@@ -55,6 +59,10 @@ REGISTRY: dict[str, Source] = {
     "breakingdefense": BreakingDefenseSource(),
     "defensenews": DefenseNewsSource(),
     "sansa": SansaSource(),
+    "csa": CsaSource(),
+    "uae": UaeSpaceSource(),
+    "inpe": InpeSource(),
+    "isa": IsaSource(),
 }
 
 __all__ = ["CandidateArticle", "Source", "REGISTRY"]
