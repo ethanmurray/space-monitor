@@ -11,7 +11,9 @@ and are not yet wired up.
 from .asi import AsiSource
 from .asianscientist import AsianScientistSource
 from .base import CandidateArticle, Source
+from .breakingdefense import BreakingDefenseSource
 from .cnes import CnesSource
+from .defensenews import DefenseNewsSource
 from .disdg import DisDgSource
 from .esa import EsaSource
 from .eusst import EusstSource
@@ -19,10 +21,15 @@ from .gnews import GNewsSource
 from .govuk import GovUkSource
 from .mundogeo import MundoGeoSource
 from .nasa import NasaSource
+from .nasaspaceflight import NasaSpaceflightSource
+from .payloadspace import PayloadSpaceSource
+from .philsa import PhilSaSource
+from .sansa import SansaSource
 from .satellitetoday import SatelliteTodaySource
 from .satnews import SatNewsSource
 from .skao import SkaoSource
 from .spacenews import SpaceNewsSource
+from .spacepolicyonline import SpacePolicyOnlineSource
 from .spacewatch import SpaceWatchSource
 
 REGISTRY: dict[str, Source] = {
@@ -41,6 +48,13 @@ REGISTRY: dict[str, Source] = {
     "asi": AsiSource(),
     "cnes": CnesSource(),
     "gnews": GNewsSource(),
+    "payloadspace": PayloadSpaceSource(),
+    "nasaspaceflight": NasaSpaceflightSource(),
+    "spacepolicyonline": SpacePolicyOnlineSource(),
+    "philsa": PhilSaSource(),
+    "breakingdefense": BreakingDefenseSource(),
+    "defensenews": DefenseNewsSource(),
+    "sansa": SansaSource(),
 }
 
 __all__ = ["CandidateArticle", "Source", "REGISTRY"]

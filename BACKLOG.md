@@ -353,3 +353,19 @@ pre-Jan-2026 announcements from high-volume feeds.
   disabled (Cloudflare). Skipped this round: ISRO/KARI (paths returned
   404 — sites likely restructured), JAXA (WAF blocks default UA — needs
   Playwright), UAE Space Agency / INPE (HTML structure needs more probing).
+- **7 more adapters** (round 4 of source expansion):
+  - **Trade press (no prefilter):** payloadspace, nasaspaceflight (NSF),
+    spacepolicyonline.
+  - **National agency (no prefilter):** philsa (Philippines).
+  - **Broader/noisier (prefilter required):** breakingdefense,
+    defensenews, sansa.
+  All 7 RSS-based; built from a parallel probe batch. Live-verified each.
+  Defense-news prefilter run skipped 6/8 obvious non-space (Iran weapons
+  delays, Bluetooth carrier tracking) and let through real signals (Space
+  Force orbital AMTI deals, Australia defense strategy).
+- **Source registry now: 22 adapters, 21 working.** SpaceWatch still
+  disabled. Still skipped: ISRO/KARI (current site URLs unknown), JAXA
+  (WAF blocks default UA — needs Playwright), DLR (RSS dead), UAE Space
+  Agency / INPE (HTML index returns content but article-link pattern
+  unclear without DOM inspection), thespacereview, ROSCOSMOS, CSA, ISA
+  Israel (all RSS endpoints failed). Re-attempt these in a future round.

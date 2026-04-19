@@ -157,6 +157,13 @@ fetcher (P2 in BACKLOG.md).
 | `asi`           | RSS       | n/a            | —         | Italian Space Agency; Italian-language |
 | `cnes`          | scraper   | n/a            | —         | French space agency; French-language |
 | `gnews`         | search    | n/a            | **yes**   | Google News RSS-search across ~30 queries (English topics + 8 localized + 12 country watchlist). Decodes Google redirect URLs to real publishers. **Discovery surface beyond known feeds.** |
+| `payloadspace`  | RSS       | n/a            | —         | Daily commercial-space industry trade press |
+| `nasaspaceflight` | RSS     | n/a            | —         | Deep-technical launch and program journalism |
+| `spacepolicyonline` | RSS   | n/a            | —         | US space policy + congressional action |
+| `philsa`        | RSS       | n/a            | —         | Philippine Space Agency (newer, partnership-seeking) |
+| `sansa`         | RSS       | n/a            | **yes**   | South African National Space Agency (mixed content) |
+| `breakingdefense` | RSS     | n/a            | **yes**   | Defense industry trade press (mostly non-space; prefilter culls) |
+| `defensenews`   | RSS       | n/a            | **yes**   | Same posture as Breaking Defense |
 
 `prefilter_required = True` routes that source's titles through a batched LLM
 classifier (`pipeline/prefilter.py`) before any fetch. Per-source opt-in
