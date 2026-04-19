@@ -167,6 +167,7 @@ fetcher (P2 in BACKLOG.md).
 | `csa`           | RSS       | n/a            | —         | Canadian Space Agency (Lunar Gateway, Canadarm) |
 | `inpe`          | scraper   | 67             | —         | Brazilian INPE — Portuguese; partnership-heavy content |
 | `isa`           | scraper   | n/a            | —         | Israel Space Agency — English |
+| `isro`          | scraper   | n/a            | —         | Indian Space Research Organisation — discovers articles from homepage Latest News, parses date from each article body |
 
 `prefilter_required = True` routes that source's titles through a batched LLM
 classifier (`pipeline/prefilter.py`) before any fetch. Per-source opt-in

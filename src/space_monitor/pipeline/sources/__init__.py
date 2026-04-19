@@ -22,6 +22,7 @@ from .gnews import GNewsSource
 from .govuk import GovUkSource
 from .inpe import InpeSource
 from .isa import IsaSource
+from .isro import IsroSource
 from .mundogeo import MundoGeoSource
 from .nasa import NasaSource
 from .nasaspaceflight import NasaSpaceflightSource
@@ -63,6 +64,7 @@ REGISTRY: dict[str, Source] = {
     "uae": UaeSpaceSource(),
     "inpe": InpeSource(),
     "isa": IsaSource(),
+    "isro": IsroSource(),
 }
 
 __all__ = ["CandidateArticle", "Source", "REGISTRY"]

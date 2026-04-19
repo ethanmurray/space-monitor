@@ -385,3 +385,14 @@ pre-Jan-2026 announcements from high-volume feeds.
   - **Geo-blocked from this environment**: ROSCOSMOS (403 + expired SSL on
     en.roscosmos.ru)
   - **No RSS feed**: thespacereview
+- **Round 6: ISRO adapter** — ISRO has no RSS, no dated index, and articles
+  are flat ``<Title>.html`` files at the site root. Adapter does a two-step
+  discovery: (1) fetch homepage, slice the "Latest News" section, extract
+  ``[A-Z][A-Za-z0-9_]+\.html`` hrefs from inside the slice (avoids
+  picking up evergreen pages like ``Careers.html``); (2) for each
+  candidate, GET the article body and parse the first
+  ``Month DD, YYYY`` match for the publication date. ~12 extra HTTP
+  requests per ingest run, bounded. First live run surfaced an
+  **ISRO-AIIMS New Delhi Framework Memorandum** as a high-confidence
+  India-India partnership.
+- **Source registry now: 26 adapters, 25 working.**
