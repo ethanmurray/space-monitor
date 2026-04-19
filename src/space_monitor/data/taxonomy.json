@@ -1,0 +1,1657 @@
+{
+  "cocoms": [
+    "Other",
+    "USAFRICOM",
+    "USCENTCOM",
+    "USEUCOM",
+    "USINDOPACOM",
+    "USNORTHCOM",
+    "USSOUTHCOM",
+    "n/a"
+  ],
+  "countries": [
+    {
+      "name": "Afghanistan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Albania",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Algeria",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Andorra",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Angola",
+      "cocom": "USAFRICOM",
+      "priority": true
+    },
+    {
+      "name": "Antigua and Barbuda",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Argentina",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Armenia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "ASEAN",
+      "cocom": null,
+      "priority": false
+    },
+    {
+      "name": "Australia",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Austria",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Azerbaijan",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Bahrain",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Bangladesh",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Barbados",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Belarus",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Belgium",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Belize",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Benin",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Bhutan",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Bolivia",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Bosnia and Herzegovina",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Botswana",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Brazil",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Brunei",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Bulgaria",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Burkina Faso",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Burundi",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Cabo Verde",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Cambodia",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Cameroon",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Canada",
+      "cocom": "USNORTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Central African Republic",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Chad",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Channel Islands",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Chile",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "China",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Colombia",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Comoros",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Congo",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Costa Rica",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "C\u00f4te d'Ivoire",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Croatia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Cuba",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Cyprus",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Czech Republic",
+      "cocom": null,
+      "priority": false
+    },
+    {
+      "name": "Denmark",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Djibouti",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Dominica",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Dominican Republic",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "DR Congo",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Ecuador",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Egypt",
+      "cocom": "USCENTCOM",
+      "priority": true
+    },
+    {
+      "name": "El Salvador",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Equatorial Guinea",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Eritrea",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Estonia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Eswatini",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Ethiopia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Faroe Islands",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Fiji",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Finland",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "France",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "French Guiana",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Gabon",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Gambia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Georgia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Germany",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Ghana",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Gibraltar",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Greenland",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Greece",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Grenada",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Guatemala",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Guinea",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Guinea-Bissau",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Guyana",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Haiti",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Holy See",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Honduras",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Hong Kong",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Hungary",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Iceland",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "India",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Indonesia",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Iran",
+      "cocom": "USCENTCOM",
+      "priority": true
+    },
+    {
+      "name": "Iraq",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Ireland",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Isle of Man",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Israel",
+      "cocom": "USCENTCOM",
+      "priority": true
+    },
+    {
+      "name": "Italy",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Jamaica",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Japan",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Jordan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Kazakhstan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Kenya",
+      "cocom": "USAFRICOM",
+      "priority": true
+    },
+    {
+      "name": "Kuwait",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Kyrgyzstan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Laos",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Latvia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Lebanon",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Lesotho",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Liberia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Libya",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Liechtenstein",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Lithuania",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Luxembourg",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Macao",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Madagascar",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Malawi",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Malaysia",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Maldives",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Mali",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Malta",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Mauritania",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Mauritius",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Mayotte",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Mexico",
+      "cocom": "USNORTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Moldova",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Monaco",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Mongolia",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Montenegro",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Morocco",
+      "cocom": "USAFRICOM",
+      "priority": true
+    },
+    {
+      "name": "Mozambique",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Multilateral",
+      "cocom": "Other",
+      "priority": false
+    },
+    {
+      "name": "Myanmar",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Namibia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Nepal",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Netherlands",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "New Zealand",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Nicaragua",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Niger",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Nigeria",
+      "cocom": "USAFRICOM",
+      "priority": true
+    },
+    {
+      "name": "North Korea",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "North Macedonia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Norway",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Oman",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Pakistan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Panama",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Papua New Guinea",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Paraguay",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Peru",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Philippines",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Poland",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Portugal",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Qatar",
+      "cocom": "USCENTCOM",
+      "priority": true
+    },
+    {
+      "name": "R\u00e9union",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Romania",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Russia",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Rwanda",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Saint Helena",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Saint Kitts and Nevis",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Saint Lucia",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Saint Vincent and the Grenadines",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "San Marino",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Sao Tome & Principe",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Saudi Arabia",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Senegal",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Serbia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Seychelles",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Sierra Leone",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Singapore",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Slovakia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Slovenia",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Solomon Islands",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Somalia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "South Africa",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "South Korea",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "South Sudan",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Spain",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Sri Lanka",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "State of Palestine",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Sudan",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Suriname",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Sweden",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Switzerland",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "Syria",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Taiwan",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Tajikistan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Tanzania",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Thailand",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "The Bahamas",
+      "cocom": "USNORTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Timor-Leste",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Togo",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Tonga",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Trinidad and Tobago",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Tunisia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Turkey",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "Turkmenistan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Tuvalu",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Uganda",
+      "cocom": "USAFRICOM",
+      "priority": true
+    },
+    {
+      "name": "Ukraine",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "United Arab Emirates",
+      "cocom": "USCENTCOM",
+      "priority": true
+    },
+    {
+      "name": "United Kingdom",
+      "cocom": "USEUCOM",
+      "priority": true
+    },
+    {
+      "name": "United States",
+      "cocom": "USNORTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Uruguay",
+      "cocom": "USSOUTHCOM",
+      "priority": false
+    },
+    {
+      "name": "Uzbekistan",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Vanuatu",
+      "cocom": "USINDOPACOM",
+      "priority": false
+    },
+    {
+      "name": "Venezuela",
+      "cocom": "USSOUTHCOM",
+      "priority": true
+    },
+    {
+      "name": "Vietnam",
+      "cocom": "USINDOPACOM",
+      "priority": true
+    },
+    {
+      "name": "Western Sahara",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Yemen",
+      "cocom": "USCENTCOM",
+      "priority": false
+    },
+    {
+      "name": "Zambia",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "Zimbabwe",
+      "cocom": "USAFRICOM",
+      "priority": false
+    },
+    {
+      "name": "NATO",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "n/a",
+      "cocom": "n/a",
+      "priority": false
+    },
+    {
+      "name": "Vatican City",
+      "cocom": "USEUCOM",
+      "priority": false
+    },
+    {
+      "name": "European Union",
+      "cocom": "USEUCOM",
+      "priority": false
+    }
+  ],
+  "report_types": [
+    "Civil Space Budget",
+    "Civil Space Strategy",
+    "General Country Information",
+    "Government Report",
+    "Non-Government Report",
+    "Press Release",
+    "General Trade Press",
+    "Military Space Budget",
+    "Military Space Strategy",
+    "Space Industry Overview"
+  ],
+  "partnership_types": [
+    {
+      "name": "Co-Production",
+      "score": 5
+    },
+    {
+      "name": "Cooperative RDT&E",
+      "score": 4
+    },
+    {
+      "name": "Infrastructure Access",
+      "score": 3
+    },
+    {
+      "name": "Data and Intel Sharing",
+      "score": 4
+    },
+    {
+      "name": "Joint Exercises, Tests and Training",
+      "score": 4
+    },
+    {
+      "name": "Personnel Exchanges",
+      "score": 2
+    },
+    {
+      "name": "Transactions",
+      "score": 2
+    },
+    {
+      "name": "Framework Agreements, Meetings, and Consortia",
+      "score": 1
+    }
+  ],
+  "levels_of_commitment": [
+    {
+      "name": "High",
+      "score": 2
+    },
+    {
+      "name": "Low",
+      "score": 0
+    }
+  ],
+  "business_models": [
+    {
+      "name": "G2G",
+      "score": 2
+    },
+    {
+      "name": "B2G",
+      "score": 1
+    },
+    {
+      "name": "B2B",
+      "score": 0
+    }
+  ],
+  "mission_types": [
+    {
+      "name": "Military",
+      "score": 1
+    },
+    {
+      "name": "Civil",
+      "score": 0
+    },
+    {
+      "name": "Commercial",
+      "score": 0
+    },
+    {
+      "name": "Multi-Use",
+      "score": 1
+    }
+  ],
+  "relationship_types": [
+    "Cooperative",
+    "Transaction"
+  ],
+  "operator_types": [
+    "Civil",
+    "Military",
+    "Commercial"
+  ],
+  "organization_types": [
+    "Government",
+    "Industry"
+  ],
+  "sovereign_statuses": [
+    "Sovereign",
+    "Quasi-Sovereign",
+    "Partnered",
+    "n/a"
+  ],
+  "mass_classes": [
+    {
+      "name": "Nanosatellite",
+      "lower_kg": 0.1,
+      "upper_kg": 9.9999
+    },
+    {
+      "name": "Microsatellite",
+      "lower_kg": 10.0,
+      "upper_kg": 99.9999
+    },
+    {
+      "name": "Minisatellite",
+      "lower_kg": 100.0,
+      "upper_kg": 499.9999
+    },
+    {
+      "name": "Smallsatellite",
+      "lower_kg": 500.0,
+      "upper_kg": 999.9999
+    },
+    {
+      "name": "Medium Satellite",
+      "lower_kg": 1000.0,
+      "upper_kg": 2999.9999
+    },
+    {
+      "name": "Large Satellite",
+      "lower_kg": 3000.0,
+      "upper_kg": 5999.9999
+    },
+    {
+      "name": "Very Large Satellite & Other",
+      "lower_kg": 6000.0,
+      "upper_kg": 10000000000.0
+    }
+  ],
+  "orbits": [
+    "LEO",
+    "MEO",
+    "GEO",
+    "HEO",
+    "xGEO",
+    "Ground"
+  ],
+  "mission_areas": [
+    "BMC3",
+    "SATCOM & PNT",
+    "Space Sensing",
+    "Assured Access to Space",
+    "SDA & Combat Power",
+    "Science & Exploration",
+    "Other",
+    "Not Specified"
+  ],
+  "sub_missions": [
+    "Payload & Sensors",
+    "Bus & Spacecraft Integration",
+    "Launch",
+    "Ground",
+    "Data Processing & Analytics",
+    "Other"
+  ],
+  "value_chain_segments": [
+    "Payload & Sensors",
+    "Bus & Spacecraft Integration",
+    "Launch",
+    "Ground",
+    "Data Processing & Analytics",
+    "Other",
+    "Satellite and Space Systems Integration",
+    "Digital Services",
+    "Spacecraft Components"
+  ],
+  "industry_score_definitions": [
+    {
+      "score": 0,
+      "definition": "n/a"
+    },
+    {
+      "score": 1,
+      "definition": "Basic capability; one-off capabilities"
+    },
+    {
+      "score": 2,
+      "definition": "Competitive capability; regional capability"
+    },
+    {
+      "score": 3,
+      "definition": "Best-in-class capability; global capability"
+    }
+  ],
+  "industrial_base_score_definitions": [
+    {
+      "score": 0,
+      "definition": "No stated or current capability - nothing there"
+    },
+    {
+      "score": 1,
+      "definition": "Prototype or advertised capability, but nothing on-orbit"
+    },
+    {
+      "score": 2,
+      "definition": "On-orbit capability, but nothing best-in-class"
+    },
+    {
+      "score": 3,
+      "definition": "Best-in-class capability"
+    }
+  ],
+  "partnership_strength_lookup": [
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 5
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 4
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 3
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 3
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 2
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 4
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 3
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 2
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 2
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Business-to-Business (any)",
+      "business_model": "B2B",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2B",
+      "mission_type": "Military",
+      "score": 2
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 5
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 4
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 3
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 3
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 2
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 4
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 3
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 2
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 2
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Business-to-Business (any)",
+      "business_model": "B2B",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2B",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 5
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 4
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 3
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 3
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 2
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 4
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 3
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 2
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 2
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Business-to-Business (any)",
+      "business_model": "B2B",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2B",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 5
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 4
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 3
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 3
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 2
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 4
+    },
+    {
+      "partnership_type": "Coordinated Investment",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 3
+    },
+    {
+      "partnership_type": "Infrastructure Asset Access / User",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 2
+    },
+    {
+      "partnership_type": "Hosted Payload",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 2
+    },
+    {
+      "partnership_type": "Foundational Agreement",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Business-to-Business (any)",
+      "business_model": "B2B",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Program Co-Owner",
+      "business_model": "B2B",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Contract",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "G2G",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "G2G",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "G2G",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "G2G",
+      "mission_type": "Multi-Use",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "B2G",
+      "mission_type": "Civil",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "B2G",
+      "mission_type": "Military",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "B2G",
+      "mission_type": "Commercial",
+      "score": 1
+    },
+    {
+      "partnership_type": "Other",
+      "business_model": "B2G",
+      "mission_type": "Multi-Use",
+      "score": 1
+    }
+  ]
+}

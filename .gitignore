@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+build/
+dist/
+*.db
+*.db-journal
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Source workbook + analyst-curated outputs — kept out of git for privacy.
+# Place locally to run `space-monitor extract-taxonomy` / `load`.
+Space_Dashboard_Hardcopy.xlsx
+*.xlsx

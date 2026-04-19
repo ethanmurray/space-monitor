@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "space-monitor"
+version = "0.1.0"
+description = "Automation foundation for the Space Dashboard: typed taxonomy + xlsx-to-SQLite loader."
+requires-python = ">=3.10"
+dependencies = [
+    "openpyxl>=3.1",
+    "anthropic>=0.40",
+    "httpx>=0.27",
+    "feedparser>=6.0",
+    "trafilatura>=1.12",
+]
+
+[project.scripts]
+space-monitor = "space_monitor.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+space_monitor = ["data/*.json"]
