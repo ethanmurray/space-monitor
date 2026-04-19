@@ -138,6 +138,18 @@ underneath that briefing. UI is explicitly deferred (see P2 web-UI item).
       Better signal than raw Google search. Useful if Google News RSS proves
       too noisy.
 
+- [ ] **Factiva integration (future-explore).** Owner has search-only
+      access today (no API tier). Would meaningfully improve breadth for
+      paywalled flagship outlets (WSJ/FT/Nikkei/Bloomberg) and non-English
+      regional business press — exactly the gaps Google News covers
+      thinnest. Two paths if access changes: (a) Dow Jones API tier
+      (~$500-2000/mo) — clean adapter, same shape as other sources;
+      (b) Factiva email-alert digest parsing — clunkier, but works with
+      the existing search-only subscription. Re-evaluate if (i) noise
+      ceiling on Google News forces a quality upgrade, or (ii) coverage
+      gaps in non-English regional press become visible in country
+      briefings.
+
 ### Sources to add as first-class adapters (focused on coverage gaps)
 
 Today our 12 sources lean US/EU. The countries where partnerships are most
@@ -325,3 +337,19 @@ pre-Jan-2026 announcements from high-volume feeds.
   with a copy). New `space-monitor bootstrap` command initializes a fresh
   DB with no xlsx required. `scripts/export_seed.py` regenerates the seed
   CSV from a fully-loaded DB.
+- **Google News RSS-search adapter (gnews)** — discovery surface beyond
+  known feeds. Fans out across ~30 queries (12 English topic queries,
+  8 localized topic queries in fr/de/ja/ko/pt-BR/es/it/ar, 12 country
+  watchlist queries for under-covered geographies). Decodes opaque
+  `news.google.com/rss/articles/<token>` URLs to real publishers via the
+  `googlenewsdecoder` library. Per-source rate-limited (1s decode interval).
+  Caught a Canada-South Korea space cooperation agreement on first live run
+  from a publisher (spaceq.ca) we don't poll directly — the breadth win.
+- **Two new agency adapters: ASI and CNES.** ASI via RSS (50 entries
+  Italian); CNES via HTML scrape of `cnes.fr/communiques` with French
+  inline date parsing. CNES extraction immediately surfaced a France-Italy
+  partnership on the JUICE/MAJIS instrument.
+- **Source registry now: 15 adapters, 14 working.** SpaceWatch still
+  disabled (Cloudflare). Skipped this round: ISRO/KARI (paths returned
+  404 — sites likely restructured), JAXA (WAF blocks default UA — needs
+  Playwright), UAE Space Agency / INPE (HTML structure needs more probing).

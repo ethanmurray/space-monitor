@@ -8,11 +8,14 @@ sites behind JS, government portals, africanews.space) need bespoke fetchers
 and are not yet wired up.
 """
 
+from .asi import AsiSource
 from .asianscientist import AsianScientistSource
 from .base import CandidateArticle, Source
+from .cnes import CnesSource
 from .disdg import DisDgSource
 from .esa import EsaSource
 from .eusst import EusstSource
+from .gnews import GNewsSource
 from .govuk import GovUkSource
 from .mundogeo import MundoGeoSource
 from .nasa import NasaSource
@@ -35,6 +38,9 @@ REGISTRY: dict[str, Source] = {
     "skao": SkaoSource(),
     "eusst": EusstSource(),
     "disdg": DisDgSource(),
+    "asi": AsiSource(),
+    "cnes": CnesSource(),
+    "gnews": GNewsSource(),
 }
 
 __all__ = ["CandidateArticle", "Source", "REGISTRY"]

@@ -154,6 +154,9 @@ fetcher (P2 in BACKLOG.md).
 | `satellitetoday`| RSS       | n/a            | —         | |
 | `satnews`       | RSS       | n/a            | —         | |
 | `disdg`         | scraper   | 50             | —         | EU DG DEFIS; ~370 articles of history |
+| `asi`           | RSS       | n/a            | —         | Italian Space Agency; Italian-language |
+| `cnes`          | scraper   | n/a            | —         | French space agency; French-language |
+| `gnews`         | search    | n/a            | **yes**   | Google News RSS-search across ~30 queries (English topics + 8 localized + 12 country watchlist). Decodes Google redirect URLs to real publishers. **Discovery surface beyond known feeds.** |
 
 `prefilter_required = True` routes that source's titles through a batched LLM
 classifier (`pipeline/prefilter.py`) before any fetch. Per-source opt-in
