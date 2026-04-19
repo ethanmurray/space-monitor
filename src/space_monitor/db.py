@@ -16,9 +16,11 @@ analytical gain at this stage.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 # DDL kept as one string per table for readability and ordered insertion.
 TABLES: list[tuple[str, str]] = [
@@ -530,14 +532,92 @@ PIPELINE_TABLES: list[tuple[str, str]] = [
 # ---------------------------------------------------------------------------
 
 
+def _is_remote(arg: str) -> bool:
+    return arg.startswith(("libsql://", "https://", "http://", "wss://", "ws://"))
+
+
+def resolve_db(arg: str | Path | None = None) -> str:
+    """Pick a DB destination from CLI arg / env / default.
+
+    Precedence: explicit ``arg`` > ``TURSO_DATABASE_URL`` env > default
+    ``./space_monitor.db``. Returns either a libsql/https URL string or a
+    local file path string.
+    """
+    if arg is not None:
+        return str(arg)
+    env_url = os.environ.get("TURSO_DATABASE_URL")
+    if env_url:
+        return env_url
+    return "space_monitor.db"
+
+
 @contextmanager
-def connect(path: str | Path):
-    conn = sqlite3.connect(path)
-    conn.execute("PRAGMA foreign_keys = ON")
-    try:
-        yield conn
-    finally:
-        conn.close()
+def connect(arg: str | Path) -> Any:
+    """Open a connection to either a local SQLite file or a remote libsql /
+    Turso database. The CLI normalises arg via :func:`resolve_db`.
+
+    Both backends expose the same DB-API 2.0 surface we use across the code
+    base: ``execute``, ``executemany``, ``commit``, ``cursor``,
+    ``lastrowid``, ``fetchone``, ``fetchall``. Foreign-key enforcement is
+    only turned on for SQLite — Turso doesn't honour the PRAGMA today.
+    """
+    arg_str = str(arg)
+    if _is_remote(arg_str):
+        # Remote (Turso / libsql). Auth token via env or already in URL.
+        import libsql_experimental as libsql  # lazy import; not needed for SQLite
+
+        token = os.environ.get("TURSO_AUTH_TOKEN")
+        raw = libsql.connect(database=arg_str, auth_token=token)
+        conn = _LibsqlAdapter(raw)
+        try:
+            yield conn
+        finally:
+            # libsql_experimental's Connection has no explicit close() at the
+            # time of writing — the underlying client cleans up on GC.
+            try:
+                raw.close()
+            except AttributeError:
+                pass
+    else:
+        conn = sqlite3.connect(arg_str)
+        conn.execute("PRAGMA foreign_keys = ON")
+        try:
+            yield conn
+        finally:
+            conn.close()
+
+
+class _LibsqlAdapter:
+    """Thin wrapper that makes a libsql_experimental connection accept the
+    list-of-params shape the rest of the codebase uses. The underlying
+    client is strict about tuples; sqlite3 accepts either. We convert at
+    the boundary so the call sites can stay sqlite3-flavoured.
+    """
+
+    def __init__(self, raw: Any):
+        self._raw = raw
+
+    @staticmethod
+    def _tup(params: Any) -> Any:
+        if isinstance(params, list):
+            return tuple(params)
+        return params
+
+    def execute(self, sql: str, params: Any = ()) -> Any:
+        return self._raw.execute(sql, self._tup(params))
+
+    def executemany(self, sql: str, seq_of_params: Any) -> Any:
+        coerced = [self._tup(p) for p in seq_of_params]
+        return self._raw.executemany(sql, coerced)
+
+    def commit(self) -> None:
+        self._raw.commit()
+
+    def cursor(self) -> Any:
+        return self._raw.cursor()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._raw, name)
 
 
 def init_schema(conn: sqlite3.Connection) -> None:

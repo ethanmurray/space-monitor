@@ -1,0 +1,51 @@
+name: Daily ingest
+
+# Runs `space-monitor ingest --source all` on a daily schedule against the
+# Turso database referenced by TURSO_DATABASE_URL. Idempotent — RSS feeds
+# only carry the last ~10–30 entries, and url_hash dedup prevents
+# re-processing articles already in news_article. Missed days are harmless.
+#
+# Required GitHub Actions secrets:
+#   ANTHROPIC_API_KEY     — Claude API key (extract.py + prefilter.py)
+#   TURSO_DATABASE_URL    — libsql://<host> from `turso db show <name>`
+#   TURSO_AUTH_TOKEN      — read/write token from `turso db tokens create <name>`
+#
+# Manual run: GitHub UI -> Actions -> Daily ingest -> "Run workflow".
+
+on:
+  schedule:
+    # 13:00 UTC daily (08:00 US Central / 09:00 US Eastern).
+    - cron: "0 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Run ingest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          space-monitor ingest \
+            --source all \
+            --since 2026-01-01 \
+            --max-candidates 50 \
+            --max-extractions 50 \
+            --rate-limit-secs 1.5

@@ -1,0 +1,37 @@
+name: Bootstrap database
+
+# One-time / on-demand: initialize the Turso database with schema +
+# bundled taxonomy + bundled partnership seed CSV. Re-running is safe —
+# init_schema drops and recreates workbook tables (pipeline tables use
+# IF NOT EXISTS, so news_article + partnership_draft are preserved).
+#
+# Triggered manually via GitHub UI -> Actions -> Bootstrap database ->
+# "Run workflow". Not on a schedule.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Bootstrap
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: space-monitor bootstrap

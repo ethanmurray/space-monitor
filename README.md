@@ -219,10 +219,41 @@ the draft stays in the DB with status='rejected' for audit.
 
 ---
 
-## Daily ingest (cron)
+## Daily ingest
 
-The pipeline is idempotent (re-running on the same RSS window re-extracts
-nothing), so missed days are harmless.
+Two ways to run on a daily schedule.
+
+### A. GitHub Actions + Turso (recommended — no laptop dependency)
+
+The repo ships two workflows:
+
+- `.github/workflows/bootstrap.yml` — manual one-time DB init from bundled seed data.
+- `.github/workflows/daily-ingest.yml` — runs `space-monitor ingest --source all` daily at 13:00 UTC.
+
+**Setup (one-time):**
+
+1. Create a Turso DB:
+   ```bash
+   turso db create space-monitor
+   turso db show space-monitor             # → libsql://...turso.io URL
+   turso db tokens create space-monitor    # → auth token
+   ```
+2. Add three secrets in GitHub (*Settings → Secrets and variables → Actions*):
+   - `ANTHROPIC_API_KEY`
+   - `TURSO_DATABASE_URL` — the libsql:// URL from step 1
+   - `TURSO_AUTH_TOKEN`  — the token from step 1
+3. Trigger the **Bootstrap database** workflow once from the Actions tab.
+4. The **Daily ingest** workflow then runs automatically every day at 13:00 UTC. Idempotent — RSS feeds only carry the last ~10–30 entries and `url_hash` dedup prevents re-processing — so missed days are harmless.
+
+Inspect the DB anytime via the Turso shell:
+```bash
+turso db shell space-monitor
+> SELECT COUNT(*) FROM partnership_draft WHERE draft_status='pending';
+```
+
+### B. Local cron + local SQLite file
+
+For laptops that are reliably on at the cron time. Idempotent same as above.
 
 ```bash
 crontab -e
@@ -230,15 +261,15 @@ crontab -e
 0 13 * * * cd /home/ethanmurray/repos/space-monitor && /usr/bin/env -S bash -c 'source .env && export ANTHROPIC_API_KEY && /usr/bin/python3 -m space_monitor.cli ingest --source all --since 2026-01-01 --max-candidates 50 --max-extractions 50 --rate-limit-secs 1.5' >> /var/log/space-monitor-ingest.log 2>&1
 ```
 
-The end-of-run summary table in the log lists per-source counts.
-
-To check whether a given run produced anything worth reviewing:
+The end-of-run summary table in the log lists per-source counts. To find runs that produced something worth reviewing:
 
 ```bash
 grep 'positives=' /var/log/space-monitor-ingest.log | grep -v 'positives=0'
 ```
 
-Cost ceiling at typical feed cadence: **~$5–10/month** across all sources.
+### Cost expectations
+
+Daily run across all 25 working sources: **~$30-60/month** in Anthropic API costs (extraction + prefilter), plus **$0** infra (GH Actions free tier + Turso free tier comfortably accommodate this scale). Stays well under the user's $200/month cap.
 
 ---
 

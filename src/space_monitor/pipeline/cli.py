@@ -29,7 +29,10 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
         choices=sorted(REGISTRY) + ["all"],
         help="Source name, or 'all' to iterate every adapter not marked disabled.",
     )
-    p_ingest.add_argument("--db", type=Path, default=Path("space_monitor.db"))
+    p_ingest.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL). Defaults to TURSO_DATABASE_URL env or ./space_monitor.db.",
+    )
     p_ingest.add_argument(
         "--max-candidates", type=int, default=10,
         help="Max URLs to pull from each source feed this run (default: 10).",
@@ -49,7 +52,10 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
     p_ingest.set_defaults(func=_cmd_ingest)
 
     p_review = sub.add_parser("review", help="List, show, approve, or reject pending drafts.")
-    p_review.add_argument("--db", type=Path, default=Path("space_monitor.db"))
+    p_review.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL). Defaults to TURSO_DATABASE_URL env or ./space_monitor.db.",
+    )
     review_sub = p_review.add_subparsers(dest="review_cmd", required=True)
 
     p_list = review_sub.add_parser("list", help="List pending drafts.")
@@ -108,7 +114,7 @@ def _cmd_ingest(args: argparse.Namespace) -> int:
         sources = [REGISTRY[args.source]]
 
     totals = _RunTotals()
-    with db.connect(args.db) as conn:
+    with db.connect(db.resolve_db(args.db)) as conn:
         db.ensure_pipeline_schema(conn)
         for src in sources:
             print(f"\n==================== {src.name} ====================")
@@ -275,7 +281,7 @@ def _print_cross_source_summary(totals: _RunTotals) -> None:
 
 
 def _cmd_review_list(args: argparse.Namespace) -> int:
-    with db.connect(args.db) as conn:
+    with db.connect(db.resolve_db(args.db)) as conn:
         db.ensure_pipeline_schema(conn)
         rows = drafts_mod.list_pending(conn, limit=args.limit)
     if not rows:
@@ -288,7 +294,7 @@ def _cmd_review_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_review_show(args: argparse.Namespace) -> int:
-    with db.connect(args.db) as conn:
+    with db.connect(db.resolve_db(args.db)) as conn:
         db.ensure_pipeline_schema(conn)
         d = drafts_mod.show(conn, args.draft_id)
     if not d:
@@ -299,7 +305,7 @@ def _cmd_review_show(args: argparse.Namespace) -> int:
 
 
 def _cmd_review_approve(args: argparse.Namespace) -> int:
-    with db.connect(args.db) as conn:
+    with db.connect(db.resolve_db(args.db)) as conn:
         db.ensure_pipeline_schema(conn)
         try:
             pid = drafts_mod.approve(
@@ -313,7 +319,7 @@ def _cmd_review_approve(args: argparse.Namespace) -> int:
 
 
 def _cmd_review_reject(args: argparse.Namespace) -> int:
-    with db.connect(args.db) as conn:
+    with db.connect(db.resolve_db(args.db)) as conn:
         db.ensure_pipeline_schema(conn)
         drafts_mod.reject(conn, args.draft_id, reviewer=args.reviewer, reason=args.reason)
     print(f"rejected #{args.draft_id}")

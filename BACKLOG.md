@@ -396,3 +396,18 @@ pre-Jan-2026 announcements from high-volume feeds.
   **ISRO-AIIMS New Delhi Framework Memorandum** as a high-confidence
   India-India partnership.
 - **Source registry now: 26 adapters, 25 working.**
+- **Turso (libSQL) backend wired in.** ``--db`` flag + ``TURSO_DATABASE_URL``
+  env var resolve to either a local SQLite path or a remote libsql URL;
+  the codebase stays sqlite3-flavoured via a tiny ``_LibsqlAdapter``
+  wrapper that auto-tuples list params (libsql_experimental is strict
+  where sqlite3 is permissive). FK enforcement only applies to local
+  SQLite; Turso doesn't honour the PRAGMA. Bootstrap rewritten to use
+  chunked multi-row INSERTs (~500 rows per round-trip) — bootstrapping
+  the 7,614-row partnership seed against a US-East Turso DB takes 80 s
+  vs minutes for per-row execute.
+- **GitHub Actions workflows** (``.github/workflows/``):
+  - ``bootstrap.yml`` — manual one-time DB init.
+  - ``daily-ingest.yml`` — runs ``space-monitor ingest --source all`` at
+    13:00 UTC daily. Idempotent (RSS feeds carry the last ~10–30 entries
+    + url_hash dedup). Three secrets required: ``ANTHROPIC_API_KEY``,
+    ``TURSO_DATABASE_URL``, ``TURSO_AUTH_TOKEN``. Setup steps in README.

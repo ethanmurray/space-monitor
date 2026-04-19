@@ -1,5 +1,17 @@
-"""Command-line entry point: ``space-monitor extract-taxonomy`` and
-``space-monitor load``."""
+"""Command-line entry point: ``space-monitor extract-taxonomy``,
+``space-monitor load``, ``space-monitor bootstrap``, ``space-monitor ingest``,
+``space-monitor review``.
+
+The ``--db`` flag accepts either a local SQLite file path
+(``./space_monitor.db``) or a remote libsql / Turso URL
+(``libsql://<host>``). When --db is omitted, the resolution order is:
+
+1. ``--db`` argument if provided
+2. ``TURSO_DATABASE_URL`` env var (typical CI / production setup)
+3. ``./space_monitor.db`` (local default)
+
+For Turso, ``TURSO_AUTH_TOKEN`` env var supplies the auth token.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +19,28 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import bootstrap, load, taxonomy
+from . import bootstrap, db, load, taxonomy
+from .env import load_dotenv
 from .pipeline import cli as pipeline_cli
 
 
+def _add_db_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--db",
+        type=str,
+        default=None,
+        help=(
+            "DB destination: a local SQLite path (e.g. ./space_monitor.db) "
+            "or a libsql:// URL (Turso). Defaults to TURSO_DATABASE_URL env "
+            "if set, otherwise ./space_monitor.db."
+        ),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
+    # Load .env early so `--db` env-default + Turso auth work for every subcommand.
+    load_dotenv()
+
     parser = argparse.ArgumentParser(prog="space-monitor")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -31,23 +60,13 @@ def main(argv: list[str] | None = None) -> int:
         "load", help="Load every analytical sheet into a fresh SQLite database."
     )
     p_load.add_argument("xlsx", type=Path, help="Path to Space_Dashboard_Hardcopy.xlsx")
-    p_load.add_argument(
-        "--db",
-        type=Path,
-        default=Path("space_monitor.db"),
-        help="Output SQLite path (default: ./space_monitor.db)",
-    )
+    _add_db_arg(p_load)
 
     p_boot = sub.add_parser(
         "bootstrap",
         help="Initialize a fresh DB from bundled seed data (no xlsx required).",
     )
-    p_boot.add_argument(
-        "--db",
-        type=Path,
-        default=Path("space_monitor.db"),
-        help="Output SQLite path (default: ./space_monitor.db)",
-    )
+    _add_db_arg(p_boot)
 
     pipeline_cli.add_subcommands(sub)
 
@@ -59,17 +78,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "load":
-        counts = load.load_all(args.xlsx, args.db)
+        target = db.resolve_db(args.db)
+        counts = load.load_all(args.xlsx, target)
         width = max(len(k) for k in counts)
-        print(f"Loaded {args.xlsx} -> {args.db}")
+        print(f"Loaded {args.xlsx} -> {target}")
         for sheet, n in counts.items():
             print(f"  {sheet:<{width}}  {n:>8,} rows")
         return 0
 
     if args.cmd == "bootstrap":
-        counts = bootstrap.bootstrap_db(args.db)
+        target = db.resolve_db(args.db)
+        counts = bootstrap.bootstrap_db(target)
         width = max(len(k) for k in counts)
-        print(f"Bootstrapped {args.db} from bundled seed data")
+        print(f"Bootstrapped {target} from bundled seed data")
         for label, n in counts.items():
             print(f"  {label:<{width}}  {n:>8,} rows")
         return 0

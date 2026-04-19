@@ -19,3 +19,6 @@ dist/
 # Place locally to run `space-monitor extract-taxonomy` / `load`.
 Space_Dashboard_Hardcopy.xlsx
 *.xlsx
+
+# Claude Code harness state (scheduled tasks, etc.) — local only.
+.claude/

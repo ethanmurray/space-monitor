@@ -40,6 +40,9 @@ def bootstrap_db(db_path: str | Path) -> dict[str, int]:
     return counts
 
 
+_BULK_CHUNK = 500
+
+
 def _load_seed_csv(conn: sqlite3.Connection, table: str) -> int:
     """Load ``data/seed/<table>.csv`` into the named table.
 
@@ -47,6 +50,12 @@ def _load_seed_csv(conn: sqlite3.Connection, table: str) -> int:
     schema (e.g. ``description`` if dropped from the seed) stay NULL. Missing
     columns in the CSV are silently ignored. This makes the seed format
     forward-compatible with schema additions.
+
+    Inserts via multi-row ``VALUES (?, ?, ...), (?, ?, ...), ...`` chunks of
+    :data:`_BULK_CHUNK` rows each. This is ~100× faster than
+    ``executemany`` against Turso, which sends one network round-trip per row.
+    For local SQLite the speed difference is negligible. Both backends accept
+    the multi-row form.
     """
     seed_path = Path(resources.files("space_monitor") / "data" / "seed" / f"{table}.csv")
     if not seed_path.exists():
@@ -54,16 +63,22 @@ def _load_seed_csv(conn: sqlite3.Connection, table: str) -> int:
     with seed_path.open(newline="") as fh:
         reader = csv.reader(fh)
         header = next(reader)
-        placeholders = ", ".join(["?"] * len(header))
         col_list = ", ".join(header)
-        sql = f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES ({placeholders})"
-        # csv.reader yields all values as strings; SQLite will coerce numerics
-        # when the column type is INTEGER/REAL. Empty strings for nullable
-        # columns become NULL.
-        n = 0
-        for row in reader:
-            row = [v if v != "" else None for v in row]
-            conn.execute(sql, row)
-            n += 1
-        conn.commit()
-        return n
+        rows = [
+            tuple(v if v != "" else None for v in row)
+            for row in reader
+        ]
+    if not rows:
+        return 0
+    n_cols = len(header)
+    row_placeholder = "(" + ", ".join(["?"] * n_cols) + ")"
+    n = 0
+    for i in range(0, len(rows), _BULK_CHUNK):
+        chunk = rows[i : i + _BULK_CHUNK]
+        values_clause = ", ".join([row_placeholder] * len(chunk))
+        sql = f"INSERT OR REPLACE INTO {table} ({col_list}) VALUES {values_clause}"
+        flat = tuple(v for row in chunk for v in row)
+        conn.execute(sql, flat)
+        n += len(chunk)
+    conn.commit()
+    return n
