@@ -268,6 +268,134 @@ def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | Non
     )
 
 
+_EDITABLE_DRAFT_FIELDS = (
+    "partnership_year",
+    "partnership_type",
+    "level_of_commitment",
+    "relationship_type",
+    "business_model",
+    "mission_type",
+    "primary_mission",
+    "country_1",
+    "org_type_1",
+    "organization_1",
+    "company_1",
+    "country_2",
+    "org_type_2",
+    "organization_2",
+    "company_2",
+)
+
+
+def save_draft_edits(
+    draft_id: int,
+    edits: dict[str, Any],
+    db_arg: str | None = None,
+) -> None:
+    """Update the listed columns on a pending partnership_draft. Silently
+    skips any keys not in :data:`_EDITABLE_DRAFT_FIELDS` — the form is the
+    contract and we don't want a mistyped widget key to overwrite something
+    sensitive (like draft_status)."""
+    safe = {k: v for k, v in edits.items() if k in _EDITABLE_DRAFT_FIELDS}
+    if not safe:
+        return
+    target = db.resolve_db(db_arg)
+    set_clause = ", ".join(f"{k} = ?" for k in safe)
+    params = list(safe.values()) + [draft_id]
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        conn.execute(
+            f"UPDATE partnership_draft SET {set_clause} WHERE id = ?",
+            params,
+        )
+        conn.commit()
+
+
+def next_pending_draft_id(
+    after_draft_id: int,
+    *,
+    same_source_only: bool = True,
+    db_arg: str | None = None,
+) -> int | None:
+    """Return the ID of the next pending draft after ``after_draft_id``.
+
+    If ``same_source_only`` (the default), restrict to the same source as
+    the just-acted-on draft so a reviewer can batch-process one source
+    cleanly. Returns None when the queue is empty for the scope.
+    """
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        if same_source_only:
+            row = conn.execute(
+                """
+                SELECT d.id
+                  FROM partnership_draft d
+                  JOIN news_article a ON a.id = d.source_article_id
+                 WHERE d.draft_status = 'pending'
+                   AND a.source = (
+                         SELECT a2.source
+                           FROM partnership_draft d2
+                           JOIN news_article a2 ON a2.id = d2.source_article_id
+                          WHERE d2.id = ?)
+                   AND d.id != ?
+                 ORDER BY d.id ASC
+                 LIMIT 1
+                """,
+                (after_draft_id, after_draft_id),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM partnership_draft "
+                "WHERE draft_status = 'pending' AND id != ? "
+                "ORDER BY id ASC LIMIT 1",
+                (after_draft_id,),
+            ).fetchone()
+    return row[0] if row else None
+
+
+def article_id_for_draft(draft_id: int, db_arg: str | None = None) -> int | None:
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        row = conn.execute(
+            "SELECT source_article_id FROM partnership_draft WHERE id = ?",
+            (draft_id,),
+        ).fetchone()
+    return row[0] if row else None
+
+
+def approve_draft(
+    draft_id: int,
+    *,
+    reviewer: str,
+    notes: str | None = None,
+    db_arg: str | None = None,
+) -> str:
+    """Promote a draft to the live partnership table. Thin wrapper around
+    :func:`pipeline.drafts.approve` that opens its own connection."""
+    from ..pipeline import drafts
+
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        return drafts.approve(conn, draft_id, reviewer=reviewer, notes=notes)
+
+
+def reject_draft(
+    draft_id: int,
+    *,
+    reviewer: str,
+    reason: str,
+    db_arg: str | None = None,
+) -> None:
+    from ..pipeline import drafts
+
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        drafts.reject(conn, draft_id, reviewer=reviewer, reason=reason)
+
+
 def translate_and_cache(
     article_id: int,
     source_text: str,

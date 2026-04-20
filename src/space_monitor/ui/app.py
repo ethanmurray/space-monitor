@@ -256,21 +256,45 @@ def render_source_detail() -> None:
 # ---------------------------------------------------------------------------
 
 
-_DRAFT_FIELDS = [
-    ("partnership_year",     "Year"),
-    ("partnership_type",     "Type"),
-    ("level_of_commitment",  "Commitment"),
-    ("relationship_type",    "Relationship"),
-    ("business_model",       "Model"),
-    ("mission_type",         "Mission type"),
-    ("primary_mission",      "Primary mission"),
-    ("country_1",            "Country 1"),
-    ("organization_1",       "Org 1"),
-    ("company_1",            "Company 1"),
-    ("country_2",            "Country 2"),
-    ("organization_2",       "Org 2"),
-    ("company_2",            "Company 2"),
+import os
+
+from space_monitor import taxonomy as taxonomy_mod
+
+
+# Field name on partnership_draft -> (label, kind, vocabulary lookup)
+# kind: "text" | "int" | "enum" — enum draws values from the named taxonomy attr.
+_FORM_FIELDS: list[tuple[str, str, str, str | None]] = [
+    ("partnership_year",     "Year",            "int",  None),
+    ("partnership_type",     "Type",            "enum", "partnership_types"),
+    ("level_of_commitment",  "Commitment",      "enum", "levels_of_commitment"),
+    ("relationship_type",    "Relationship",    "enum", "relationship_types"),
+    ("business_model",       "Business model",  "enum", "business_models"),
+    ("mission_type",         "Mission type",    "enum", "mission_types"),
+    ("primary_mission",      "Primary mission", "enum", "mission_areas"),
+    ("country_1",            "Country 1",       "text", None),
+    ("org_type_1",           "Org type 1",      "enum", "organization_types"),
+    ("organization_1",       "Org 1",           "text", None),
+    ("company_1",            "Company 1",       "text", None),
+    ("country_2",            "Country 2",       "text", None),
+    ("org_type_2",           "Org type 2",      "enum", "organization_types"),
+    ("organization_2",       "Org 2",           "text", None),
+    ("company_2",            "Company 2",       "text", None),
 ]
+
+
+def _enum_options(attr: str) -> list[str]:
+    """Return sorted vocabulary names for the named taxonomy attribute."""
+    t = taxonomy_mod.load()
+    raw = getattr(t, attr, ())
+    out: list[str] = []
+    for item in raw:
+        # ScoredTerm has .name; plain str entries appear directly.
+        out.append(item.name if hasattr(item, "name") else str(item))
+    return out
+
+
+def _analyst_name() -> str:
+    return os.environ.get("ANALYST_NAME") or "analyst"
 
 
 def render_article_review() -> None:
@@ -326,7 +350,7 @@ def render_article_review() -> None:
         else:
             st.write(article.cleaned_text or "(no body — fetch may have failed)")
 
-    # -------- RIGHT: draft fields ---------
+    # -------- RIGHT: editable draft + actions ---------
     with draft_col:
         st.subheader("Extracted draft")
         d = article.draft
@@ -337,21 +361,111 @@ def render_article_review() -> None:
         st.caption(
             f"Draft #{d['id']}  ·  status `{d['draft_status']}`  ·  "
             f"confidence `{d.get('confidence') or '—'}`  ·  "
-            f"model `{d.get('extractor_model')}`"
+            f"model `{d.get('extractor_model')}`  ·  "
+            f"reviewer = `{_analyst_name()}`"
         )
         if d.get("possible_duplicate_of"):
             st.warning(
                 f"⚠ Possible duplicate of existing partnership "
                 f"`{d['possible_duplicate_of']}`"
             )
-
+        if d.get("review_notes"):
+            st.info(f"Prior review note: {d['review_notes']}")
         if d.get("description"):
-            st.markdown(f"**Summary:** _{d['description']}_")
+            st.markdown(f"**Extractor summary:** _{d['description']}_")
 
-        # Read-only field grid for now. Editable form is the next iteration.
-        for col, label in _DRAFT_FIELDS:
-            v = d.get(col)
-            st.text(f"{label}: {v if v not in (None, '') else '—'}")
+        is_actionable = d["draft_status"] == "pending"
+        if not is_actionable:
+            st.success(
+                f"This draft is **{d['draft_status']}**. "
+                + (f"Promoted partnership: `{d['promoted_partnership_id']}`."
+                   if d.get("promoted_partnership_id") else "")
+            )
+            # Show fields read-only for non-pending drafts.
+            for col, label, _kind, _vocab in _FORM_FIELDS:
+                v = d.get(col)
+                st.text(f"{label}: {v if v not in (None, '') else '—'}")
+            return
+
+        # -------- editable form ---------
+        with st.form(key=f"draft_form_{d['id']}"):
+            edits: dict[str, object | None] = {}
+            for col, label, kind, vocab in _FORM_FIELDS:
+                current = d.get(col)
+                widget_key = f"f_{d['id']}_{col}"
+                if kind == "enum":
+                    options = [""] + _enum_options(vocab)  # type: ignore[arg-type]
+                    idx = options.index(current) if current in options else 0
+                    val = st.selectbox(label, options, index=idx, key=widget_key)
+                    edits[col] = val if val else None
+                elif kind == "int":
+                    val = st.text_input(label, value=str(current) if current else "", key=widget_key)
+                    try:
+                        edits[col] = int(val) if val.strip() else None
+                    except ValueError:
+                        edits[col] = None
+                else:
+                    val = st.text_input(label, value=current or "", key=widget_key)
+                    edits[col] = val if val else None
+
+            reject_reason = st.text_area(
+                "Rejection reason (required to reject)",
+                key=f"reject_reason_{d['id']}",
+                placeholder="e.g. Not a partnership announcement; "
+                "or, duplicate of <id>; or, low quality extraction.",
+            )
+
+            ca, cb, cc = st.columns(3)
+            save_clicked = ca.form_submit_button("💾 Save edits", use_container_width=True)
+            approve_clicked = cb.form_submit_button("✅ Approve", use_container_width=True, type="primary")
+            reject_clicked = cc.form_submit_button("🚫 Reject as irrelevant", use_container_width=True)
+
+        if save_clicked:
+            ui_data.save_draft_edits(d["id"], edits)
+            st.toast("Edits saved.", icon="💾")
+            st.rerun()
+
+        if approve_clicked:
+            ui_data.save_draft_edits(d["id"], edits)
+            try:
+                pid = ui_data.approve_draft(
+                    d["id"], reviewer=_analyst_name(),
+                    notes="Approved via UI",
+                )
+            except Exception as e:
+                st.error(f"Approve failed: {type(e).__name__}: {e}")
+                return
+            st.toast(f"Approved → {pid[:60]}", icon="✅")
+            _advance(after_draft_id=d["id"], fallback_source=article.source)
+
+        if reject_clicked:
+            if not reject_reason.strip():
+                st.error("Please provide a rejection reason.")
+                return
+            try:
+                ui_data.reject_draft(
+                    d["id"], reviewer=_analyst_name(), reason=reject_reason.strip(),
+                )
+            except Exception as e:
+                st.error(f"Reject failed: {type(e).__name__}: {e}")
+                return
+            st.toast("Rejected as irrelevant.", icon="🚫")
+            _advance(after_draft_id=d["id"], fallback_source=article.source)
+
+
+def _advance(*, after_draft_id: int, fallback_source: str) -> None:
+    """After approve/reject, jump to the next pending draft in the same source.
+    If none, return to the source-detail view."""
+    next_id = ui_data.next_pending_draft_id(after_draft_id, same_source_only=True)
+    if next_id is None:
+        st.info("No more pending drafts in this source.")
+        _go("source_detail", selected_source=fallback_source)
+        return
+    next_article_id = ui_data.article_id_for_draft(next_id)
+    if next_article_id:
+        _go("article_review", selected_article_id=next_article_id)
+    else:
+        _go("source_detail", selected_source=fallback_source)
 
 
 # ---------------------------------------------------------------------------
