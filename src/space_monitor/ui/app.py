@@ -47,6 +47,8 @@ def _init_state() -> None:
         st.session_state.view = "sources"
     if "only_relevant" not in st.session_state:
         st.session_state.only_relevant = True
+    if "hide_skipped" not in st.session_state:
+        st.session_state.hide_skipped = True
     if "show_summary" not in st.session_state:
         st.session_state.show_summary = False
 
@@ -186,12 +188,21 @@ def render_source_detail() -> None:
 
     st.divider()
 
-    cl, cr = st.columns([1, 1])
+    cl, cm, cr = st.columns([1, 1, 1])
     cl.checkbox(
         "Only relevant (is_partnership = true)",
         key="only_relevant",
         help="Off shows every fetched article; on shows only those flagged "
         "as a real partnership by the extractor.",
+    )
+    cm.checkbox(
+        "Hide prefilter-skipped",
+        key="hide_skipped",
+        value=True,
+        help="The LLM title classifier auto-skips obvious non-space articles "
+        "before extraction (typically ~85% on noisy sources like gov.uk). "
+        "Hidden by default; uncheck to spot-check what the classifier "
+        "rejected.",
     )
     cr.checkbox(
         "Show extractor summary instead of headline",
@@ -201,7 +212,10 @@ def render_source_detail() -> None:
     )
 
     articles = ui_data.list_articles(
-        src, only_relevant=st.session_state.only_relevant, limit=200
+        src,
+        only_relevant=st.session_state.only_relevant,
+        hide_skipped=st.session_state.hide_skipped,
+        limit=200,
     )
     if not articles:
         st.info("No articles match the current filter.")
@@ -228,7 +242,13 @@ def render_source_detail() -> None:
                     if st.button("Review →", key=f"review_{a.id}"):
                         _go("article_review", selected_article_id=a.id)
                 else:
-                    st.caption("(no draft)")
+                    # Why no draft? Tell the analyst.
+                    label = {
+                        "skipped_prefilter": "⏭ prefilter:no",
+                        "fetched":           "⏳ awaiting extract",
+                        "failed":            "❌ failed",
+                    }.get(a.status, f"({a.status})")
+                    st.caption(label)
 
 
 # ---------------------------------------------------------------------------
@@ -286,19 +306,21 @@ def render_article_review() -> None:
     # -------- LEFT: article body + translate ---------
     with body_col:
         st.subheader("Article body")
-        translated_key = f"translation_{article_id}"
-        if st.button("🌐 Translate to English"):
+        # Persisted English translation (if any) lives on news_article;
+        # re-using it across sessions saves the LLM call.
+        translation = article.cleaned_text_en
+        if not translation and st.button("🌐 Translate to English"):
             try:
-                with st.spinner("Translating via Claude…"):
-                    st.session_state[translated_key] = translate.translate_to_english(
-                        article.cleaned_text or ""
+                with st.spinner("Translating via Claude (caching to DB)…"):
+                    translation = ui_data.translate_and_cache(
+                        article.id, article.cleaned_text or ""
                     )
             except Exception as e:
                 st.error(f"Translation failed: {type(e).__name__}: {e}")
 
-        if translated_key in st.session_state:
-            st.info("Showing English translation. Original below.")
-            st.write(st.session_state[translated_key])
+        if translation:
+            st.info("Showing cached English translation. Original below.")
+            st.write(translation)
             with st.expander("Original text"):
                 st.write(article.cleaned_text or "(no body)")
         else:

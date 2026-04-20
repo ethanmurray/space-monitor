@@ -38,8 +38,9 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
         help="Max URLs to pull from each source feed this run (default: 10).",
     )
     p_ingest.add_argument(
-        "--max-extractions", type=int, default=3,
-        help="Cost cap: max LLM extractions per source this invocation (default: 3).",
+        "--max-extractions", type=int, default=25,
+        help="Cost cap: max LLM extractions per source this invocation (default: 25; "
+             "the daily cron uses 200).",
     )
     p_ingest.add_argument(
         "--since", type=str, default=None,

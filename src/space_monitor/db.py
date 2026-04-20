@@ -481,7 +481,8 @@ PIPELINE_TABLES: list[tuple[str, str]] = [
             published_at    TEXT,
             fetched_at      TEXT NOT NULL,
             cleaned_text    TEXT,
-            status          TEXT NOT NULL,        -- discovered | fetched | extracted | failed
+            cleaned_text_en TEXT,                  -- on-demand English translation; NULL until requested
+            status          TEXT NOT NULL,        -- discovered | fetched | extracted | failed | skipped_prefilter
             failure_reason  TEXT
         )
         """,
@@ -633,11 +634,31 @@ def init_schema(conn: sqlite3.Connection) -> None:
 
 
 def ensure_pipeline_schema(conn: sqlite3.Connection) -> None:
-    """Create pipeline tables if they don't already exist. Safe to call repeatedly."""
+    """Create pipeline tables if they don't already exist + apply any
+    additive migrations. Safe to call repeatedly."""
     cur = conn.cursor()
     for _, ddl in PIPELINE_TABLES:
         cur.execute(ddl.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS", 1))
+    _apply_migrations(conn)
     conn.commit()
+
+
+# Additive column migrations. Each entry: (table, column, ddl_fragment).
+# ALTER TABLE ... ADD COLUMN is supported by both sqlite3 and Turso/libsql.
+# Idempotent — we check pragma_table_info first.
+_MIGRATIONS: list[tuple[str, str, str]] = [
+    # Added when on-demand translation in the UI started persisting back.
+    ("news_article", "cleaned_text_en", "TEXT"),
+]
+
+
+def _apply_migrations(conn: sqlite3.Connection) -> None:
+    for table, column, type_ddl in _MIGRATIONS:
+        existing = {
+            row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {type_ddl}")
 
 
 def table_names() -> list[str]:

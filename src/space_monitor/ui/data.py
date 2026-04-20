@@ -187,6 +187,7 @@ def list_articles(
     source: str,
     *,
     only_relevant: bool = True,
+    hide_skipped: bool = True,
     limit: int = 200,
     db_arg: str | None = None,
 ) -> list[ArticleSummary]:
@@ -208,6 +209,8 @@ def list_articles(
         params: list[Any] = [source]
         if only_relevant:
             sql += " AND d.partnership_year IS NOT NULL"
+        if hide_skipped:
+            sql += " AND a.status != 'skipped_prefilter'"
         sql += " ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT ?"
         params.append(limit)
         rows = conn.execute(sql, params).fetchall()
@@ -229,6 +232,7 @@ class FullArticle:
     title: str | None
     published_at: str | None
     cleaned_text: str | None
+    cleaned_text_en: str | None   # cached translation; None until first request
     draft: dict[str, Any] | None  # partnership_draft row as dict, or None
 
 
@@ -237,7 +241,7 @@ def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | Non
     with db.connect(target) as conn:
         db.ensure_pipeline_schema(conn)
         article_row = conn.execute(
-            "SELECT id, source, url, title, published_at, cleaned_text "
+            "SELECT id, source, url, title, published_at, cleaned_text, cleaned_text_en "
             "FROM news_article WHERE id = ?",
             (article_id,),
         ).fetchone()
@@ -259,8 +263,43 @@ def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | Non
         title=article_row[3],
         published_at=article_row[4],
         cleaned_text=article_row[5],
+        cleaned_text_en=article_row[6],
         draft=dict(zip(draft_cols, draft_row)) if draft_row else None,
     )
+
+
+def translate_and_cache(
+    article_id: int,
+    source_text: str,
+    db_arg: str | None = None,
+) -> str:
+    """Translate to English and persist back to news_article.cleaned_text_en.
+
+    Re-checks the DB first in case another viewer requested it concurrently.
+    The Streamlit UI calls this from the article-review page; the cached
+    translation is then visible to every subsequent viewer (including future
+    sessions and other users) without re-paying the LLM cost.
+    """
+    from . import translate as translate_mod
+
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        existing = conn.execute(
+            "SELECT cleaned_text_en FROM news_article WHERE id = ?",
+            (article_id,),
+        ).fetchone()
+        if existing and existing[0]:
+            return existing[0]
+
+        # Cache miss — call the LLM and write the result.
+        translated = translate_mod.translate_to_english(source_text)
+        conn.execute(
+            "UPDATE news_article SET cleaned_text_en = ? WHERE id = ?",
+            (translated, article_id),
+        )
+        conn.commit()
+        return translated
 
 
 # ---------------------------------------------------------------------------

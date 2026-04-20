@@ -46,6 +46,6 @@ jobs:
           space-monitor ingest \
             --source all \
             --since 2026-01-01 \
-            --max-candidates 50 \
-            --max-extractions 50 \
+            --max-candidates 100 \
+            --max-extractions 200 \
             --rate-limit-secs 1.5
