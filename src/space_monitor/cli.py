@@ -68,6 +68,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     _add_db_arg(p_boot)
 
+    p_ui = sub.add_parser(
+        "ui",
+        help="Launch the Streamlit analyst UI on localhost.",
+    )
+    p_ui.add_argument("--port", type=int, default=8501, help="Default 8501.")
+    p_ui.add_argument("--host", type=str, default="127.0.0.1", help="Default 127.0.0.1.")
+
     pipeline_cli.add_subcommands(sub)
 
     args = parser.parse_args(argv)
@@ -94,6 +101,21 @@ def main(argv: list[str] | None = None) -> int:
         for label, n in counts.items():
             print(f"  {label:<{width}}  {n:>8,} rows")
         return 0
+
+    if args.cmd == "ui":
+        # streamlit run shells out to the streamlit CLI; this gives us hot
+        # reload and the proper websocket plumbing for free.
+        import subprocess
+        from importlib import resources
+
+        app_path = str(resources.files("space_monitor.ui").joinpath("app.py"))
+        cmd = [
+            "streamlit", "run", app_path,
+            "--server.port", str(args.port),
+            "--server.address", args.host,
+            "--browser.gatherUsageStats", "false",
+        ]
+        return subprocess.call(cmd)
 
     if hasattr(args, "func"):
         return args.func(args)

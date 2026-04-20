@@ -217,6 +217,27 @@ generated `partnership_id`, then sets the draft's `draft_status='approved'`
 and links it via `promoted_partnership_id`. `reject` is non-destructive —
 the draft stays in the DB with status='rejected' for audit.
 
+### UI
+
+```bash
+space-monitor ui [--port 8501] [--host 127.0.0.1]
+```
+
+Launches the Streamlit analyst UI at the given address. Three views:
+
+- **Sources** — registry of every source ever considered
+  (`src/space_monitor/data/sources.yaml`) joined with live stats from the
+  configured DB. Columns: status, type, last 24h/7d/30d article counts,
+  oldest/newest dates, % drafts flagged relevant, # pending review.
+- **Source detail** — per-source stats cards + reverse-chronological
+  article list. Toggles for "only relevant" and "show extractor summary
+  vs original headline".
+- **Article review** — full body + extracted draft fields, with an
+  on-demand "Translate to English" button (Claude Haiku call).
+
+Reads from whichever DB the rest of the CLI uses (`--db` flag,
+`TURSO_DATABASE_URL` env, or local `./space_monitor.db`).
+
 ---
 
 ## Daily ingest

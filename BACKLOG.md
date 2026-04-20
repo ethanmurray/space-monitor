@@ -442,3 +442,29 @@ exposes them outside `space-monitor review list`. The UI is the bridge.
   per-article country tags later.
 - Multi-signal extractor (P0 above) is also un-built. Today every UI view
   of "what's happening" is filtered through the partnership lens.
+
+### Phase 2 v1 — SHIPPED
+
+The inflow control panel:
+- **Source registry** (`src/space_monitor/data/sources.yaml`) — 53 entries
+  capturing every source ever considered: 25 working + 1 disabled +
+  ~10 blocked + ~17 planned/deferred/rejected. Status, type, comment,
+  workbook tally, coverage focus per entry. Hand-edited; auditable in PRs.
+- **Streamlit UI** (`src/space_monitor/ui/`) launched via `space-monitor ui`.
+  Three views: Sources (registry + live stats), Source detail (stats cards
+  + article browser), Article review (body + draft fields + on-demand
+  "Translate to English" Claude call).
+- Stack: Streamlit + PyYAML + the existing Anthropic SDK + Turso. Local-
+  only for now (`--port 8501 --host 127.0.0.1` defaults). Streamlit
+  Community Cloud deploy is one button when wanted.
+
+### Phase 2 v2 — open items
+- Editable draft form (currently read-only — the existing CLI handles
+  approve/reject; the UI will grow into that).
+- Country-tagging filter on the article browser (gated on the P0 country-
+  tagging layer landing first).
+- Cross-source dashboard (top trending countries, partnership volume by
+  week, etc.).
+- Country-briefing generator view.
+- Authentication — currently bound to localhost; HTTP basic auth + Render
+  deploy would expose it to a small team.

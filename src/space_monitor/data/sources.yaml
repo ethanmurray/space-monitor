@@ -1,0 +1,591 @@
+# Source registry
+#
+# Hand-curated catalogue of every news source we've ever considered for the
+# space-monitor pipeline — implemented, blocked, planned, or explicitly
+# decided against. The Streamlit UI joins this with live stats from the
+# news_article + partnership_draft tables to render the source-management
+# screen.
+#
+# Edit this file freely; PRs that change source status or comments are the
+# audit trail for "why is X like this". The runtime pipeline does NOT read
+# this file — it uses src/space_monitor/pipeline/sources/REGISTRY for code
+# behaviour. This is the human-facing layer on top.
+#
+# Status values:
+#   working          — registered in REGISTRY, runs successfully
+#   disabled         — registered but disabled=True (e.g. SpaceWatch / Cloudflare)
+#   blocked          — tried, failed, requires future work to unblock
+#   unreachable      — blocked by network/policy from this environment
+#   planned          — identified as a candidate, not yet built
+#   deferred         — explicitly chose to wait
+#   rejected         — decided against (with reason in comment)
+#
+# Type values:
+#   rss              — feedparser-readable feed
+#   scraper          — bespoke HTML scraper
+#   search           — query-based discovery (e.g. Google News RSS-search)
+#   api              — paid/auth API integration
+#   manual           — human-curated only
+
+sources:
+
+  # ============ Implemented (working) ============
+
+  - name: spacenews
+    domain: spacenews.com
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 250
+    description: SpaceNews — flagship US space industry trade press
+    coverage_focus: Global, US-anchored
+    comment: High-volume daily, broad coverage. One of the highest-yield sources.
+
+  - name: nasa
+    domain: nasa.gov
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 413
+    description: NASA news-release feed
+    coverage_focus: US civil space
+    comment: Top workbook tally. /news-release/feed/ — earlier /breaking_news.rss
+      paths 301'd here.
+
+  - name: esa
+    domain: esa.int
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 112
+    description: European Space Agency Our_Activities feed
+    coverage_focus: Europe civil space
+    comment: Lower-volume, longer history per index page (~5 months).
+
+  - name: govuk
+    domain: gov.uk
+    status: working
+    type: rss
+    prefilter_required: true
+    workbook_tally: 198
+    description: UK gov news-and-communications Atom feed
+    coverage_focus: UK government — broad
+    comment: Mostly non-space; prefilter classifier culls (~85% skipped).
+      Catches UK Space Agency, Ministry of Defence space items.
+
+  - name: satnews
+    domain: satnews.com
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 103
+    description: Satnews — satellite industry trade press
+    coverage_focus: Commercial satellite operators
+    comment: Strong commercial-deal coverage.
+
+  - name: satellitetoday
+    domain: satellitetoday.com
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 81
+    description: Via Satellite (Satellite Today)
+    coverage_focus: Satellite + connectivity industry
+    comment: Trade press; partnership-heavy.
+
+  - name: mundogeo
+    domain: mundogeo.com
+    status: working
+    type: rss
+    prefilter_required: false
+    workbook_tally: 132
+    description: MundoGEO — Brazilian Portuguese geospatial / space coverage
+    coverage_focus: Latin America, Portuguese-language
+    comment: Claude handles Portuguese fine. Primary Latin America source.
+
+  - name: asianscientist
+    domain: asianscientist.com
+    status: working
+    type: rss
+    prefilter_required: true
+    workbook_tally: 111
+    description: Asian Scientist — Asia-Pacific science coverage
+    coverage_focus: Asia-Pacific, science-broad
+    comment: Mostly non-space; prefilter culls. Catches the rare APAC space
+      item we'd otherwise miss.
+
+  - name: payloadspace
+    domain: payloadspace.com
+    status: working
+    type: rss
+    prefilter_required: false
+    description: Payload Space — daily commercial space industry newsletter
+    coverage_focus: US commercial space
+    comment: Newer (added round 4). High signal.
+
+  - name: nasaspaceflight
+    domain: nasaspaceflight.com
+    status: working
+    type: rss
+    prefilter_required: false
+    description: NASASpaceflight (NSF) — deep-technical launch + program journalism
+    coverage_focus: Launch vehicles, crewed spaceflight
+    comment: Long-form. Sometimes overlaps SpaceNews on big stories.
+
+  - name: spacepolicyonline
+    domain: spacepolicyonline.com
+    status: working
+    type: rss
+    prefilter_required: false
+    description: SpacePolicyOnline — US space policy + congressional action
+    coverage_focus: US policy, NASA budget
+    comment: Marcia Smith's site — authoritative on US policy moves.
+
+  - name: philsa
+    domain: philsa.gov.ph
+    status: working
+    type: rss
+    prefilter_required: false
+    description: Philippine Space Agency (founded 2019)
+    coverage_focus: Philippines
+    comment: Newer agency, partnership-seeking posture.
+
+  - name: sansa
+    domain: sansa.org.za
+    status: working
+    type: rss
+    prefilter_required: true
+    description: South African National Space Agency
+    coverage_focus: South Africa, Africa
+    comment: Mixed content (space + adjacent financial/GNSS); prefilter culls.
+
+  - name: breakingdefense
+    domain: breakingdefense.com
+    status: working
+    type: rss
+    prefilter_required: true
+    description: Breaking Defense — defense industry trade press
+    coverage_focus: US defense (space is a minority topic)
+    comment: Prefilter culls heavily (~75%). Catches Space Force / Space Command
+      items the pure-space sources miss.
+
+  - name: defensenews
+    domain: defensenews.com
+    status: working
+    type: rss
+    prefilter_required: true
+    description: Defense News — defense industry trade press
+    coverage_focus: Global defense
+    comment: Same posture as Breaking Defense; prefilter culls heavily.
+
+  - name: asi
+    domain: asi.it
+    status: working
+    type: rss
+    prefilter_required: false
+    description: Italian Space Agency (Agenzia Spaziale Italiana)
+    coverage_focus: Italy
+    comment: Italian-language; Claude handles. ~50 entries per feed pull.
+
+  - name: csa
+    domain: asc-csa.gc.ca
+    status: working
+    type: rss
+    prefilter_required: false
+    description: Canadian Space Agency
+    coverage_focus: Canada — Lunar Gateway, Canadarm, EO
+    comment: Real RSS at /rss/default_eng.xml (the legacy /eng/rss-feeds/ path
+      404s). Required _rss.py refactor to use httpx — Government of Canada
+      CA chain isn't in Python's bundled urllib root store.
+
+  - name: skao
+    domain: skao.int
+    status: working
+    type: scraper
+    prefilter_required: false
+    workbook_tally: 208
+    description: SKA Observatory — intergovernmental treaty org
+    coverage_focus: SKA member states + science
+    comment: HTML scrape of /en/news with inline "Month YYYY" dates.
+      ~9 pages of history. Top non-RSS source by workbook tally.
+
+  - name: eusst
+    domain: eusst.eu
+    status: working
+    type: scraper
+    prefilter_required: false
+    workbook_tally: 126
+    description: EU Space Surveillance & Tracking
+    coverage_focus: EU SST — re-entries, conjunction analysis
+    comment: HTML scrape of /newsroom/. Single page reaches back ~5 years
+      (low post frequency).
+
+  - name: disdg
+    domain: defence-industry-space.ec.europa.eu
+    status: working
+    type: scraper
+    prefilter_required: false
+    workbook_tally: 50
+    description: European Commission DG Defence Industry and Space (DG DEFIS)
+    coverage_focus: EU defense + space industrial policy
+    comment: HTML scrape — article URLs embed YYYY-MM-DD slug
+      (/<topic>-YYYY-MM-DD_en). ~370 articles of history.
+
+  - name: cnes
+    domain: cnes.fr
+    status: working
+    type: scraper
+    prefilter_required: false
+    description: CNES — French space agency press releases
+    coverage_focus: France
+    comment: HTML scrape of cnes.fr/communiques (older presse.cnes.fr 301s).
+      French inline DD month YYYY dates.
+
+  - name: inpe
+    domain: gov.br/inpe
+    status: working
+    type: scraper
+    prefilter_required: false
+    workbook_tally: 67
+    description: INPE — Brazilian National Institute for Space Research
+    coverage_focus: Brazil
+    comment: HTML scrape — Portuguese, DD/MM/YYYY dates. Partnership-heavy
+      content (FAO, Marinha, Censipam, INMET, state governments).
+
+  - name: isa
+    domain: space.gov.il
+    status: working
+    type: scraper
+    prefilter_required: false
+    description: Israel Space Agency
+    coverage_focus: Israel
+    comment: HTML scrape — /en/news-space/<numeric-id> with DD.MM.YYYY dates.
+      First live extraction surfaced an Israel-US partnership.
+
+  - name: isro
+    domain: isro.gov.in
+    status: working
+    type: scraper
+    prefilter_required: false
+    description: ISRO — Indian Space Research Organisation
+    coverage_focus: India
+    comment: No RSS, no dated index. Adapter does two-step discovery —
+      homepage Latest News section -> per-article body fetch to parse
+      "Month DD, YYYY" date. Bounded ~12 extra HTTP/run.
+
+  - name: gnews
+    domain: news.google.com
+    status: working
+    type: search
+    prefilter_required: true
+    description: Google News RSS-search across ~30 queries
+    coverage_focus: Long-tail discovery beyond known feeds
+    comment: 12 English topic queries + 8 localized (fr/de/ja/ko/pt-BR/es/it/ar)
+      + 12 country watchlist queries. Decodes opaque
+      news.google.com/rss/articles/<token> URLs to real publishers via the
+      googlenewsdecoder library.
+
+  # ============ Implemented but disabled ============
+
+  - name: spacewatch
+    domain: spacewatch.global
+    status: disabled
+    type: rss
+    prefilter_required: false
+    workbook_tally: 156
+    description: SpaceWatch.Global — international space industry coverage
+    coverage_focus: Global commercial space
+    comment: RSS feed works fine, but the article-body fetch is blocked by
+      Cloudflare's JavaScript challenge (returns 403 with binary garbage).
+      Adapter is registered with disabled=True. Will unblock when the
+      Playwright fetcher (P2 in BACKLOG) lands.
+
+  # ============ Tried, blocked ============
+
+  - name: jaxa
+    domain: global.jaxa.jp
+    status: blocked
+    type: scraper
+    workbook_tally: 33
+    description: JAXA — Japanese Aerospace Exploration Agency
+    coverage_focus: Japan
+    comment: WAF blocks default User-Agent (returns 403 even on the news index).
+      Multiple UA variants tested. Needs Playwright-style browser fetcher.
+
+  - name: kari
+    domain: kari.re.kr
+    status: blocked
+    type: scraper
+    description: KARI — Korea Aerospace Research Institute
+    coverage_focus: South Korea
+    comment: Site is JS-rendered (homepage returns 82-byte skeleton without
+      JS execution). Needs Playwright.
+
+  - name: dlr
+    domain: dlr.de
+    status: blocked
+    type: scraper
+    workbook_tally: 44
+    description: DLR — German Aerospace Center
+    coverage_focus: Germany
+    comment: News page is XHR-loaded (the /en/latest/news endpoint shows
+      "Loading" placeholder without JS). RSS endpoints all 404. Needs
+      Playwright OR reverse-engineering the XHR JSON endpoint.
+
+  - name: uae
+    domain: space.gov.ae
+    status: blocked
+    type: scraper
+    description: UAE Space Agency
+    coverage_focus: UAE — Mars Hope, asteroid belt mission, Arab satellites
+    comment: Adapter is registered but the /en/media-center/news-and-media
+      page is JS-rendered (dates appear in script tags but no anchor tags
+      in the HTML). Needs Playwright. High-priority unblock — UAE is
+      partnership-active.
+
+  # ============ Tried, environment-blocked ============
+
+  - name: roscosmos
+    domain: roscosmos.ru
+    status: unreachable
+    type: rss
+    description: ROSCOSMOS — Russian space agency
+    coverage_focus: Russia
+    comment: Returns 403 from this network (likely geo-blocked). en.roscosmos.ru
+      has expired SSL cert. Worth retrying from a different network. Russia
+      is increasingly isolated post-2022 but signals still matter.
+
+  - name: africanews_space
+    domain: africanews.space
+    status: unreachable
+    type: rss
+    workbook_tally: 221
+    description: AfricaNews Space — African space industry coverage
+    coverage_focus: Africa-wide
+    comment: DNS unresolvable from the development environment (httpx
+      returns "Name or service not known"). 221 workbook tally rows make
+      this high-priority to recover. Site might have moved or is transiently
+      down. Retry from a different network.
+
+  # ============ Probed but no RSS / no usable index ============
+
+  - name: thespacereview
+    domain: thespacereview.com
+    status: blocked
+    type: scraper
+    description: The Space Review — long-form analysis, weekly cadence
+    coverage_focus: Strategic analysis, US-anchored
+    comment: No RSS feed (/feed/, /index.rss, /index.xml all 404). HTML
+      monthly index exists but article URL pattern needs DOM inspection.
+      Could use the ISRO-style two-step pattern when the time investment
+      is justified — low cadence makes this lower-priority.
+
+  - name: mofa_jp
+    domain: mofa.go.jp
+    status: blocked
+    type: scraper
+    workbook_tally: 99
+    description: Japanese Ministry of Foreign Affairs
+    coverage_focus: Japan diplomatic / partnership announcements
+    comment: WAF blocks default UA (returns 403 even on robots.txt). Needs
+      Playwright or a more browser-like header set. High potential signal —
+      MoFA announces bilateral space cooperation agreements.
+
+  - name: pesco
+    domain: pesco.europa.eu
+    status: blocked
+    type: scraper
+    workbook_tally: 86
+    description: EU Permanent Structured Cooperation
+    coverage_focus: EU defense + space industrial cooperation
+    comment: SSL cert verification error from this environment ("unable to
+      verify the first certificate"). Worth retrying from a different
+      network or with adjusted SSL config.
+
+  # ============ Probed, low signal ============
+
+  - name: metoffice
+    domain: metoffice.gov.uk
+    status: deferred
+    type: rss
+    workbook_tally: 90
+    description: UK Met Office
+    coverage_focus: UK weather / climate
+    comment: robots.txt is permissive and the RSS works, but content is
+      overwhelmingly weather/climate, not space. Even with prefilter, signal
+      yield is too low. Revisit if multi-signal extractor adds environmental-
+      monitoring as a tagged signal type.
+
+  - name: nsmc_cn
+    domain: nsmc.org.cn
+    status: blocked
+    type: rss
+    workbook_tally: 79
+    description: China Meteorological Satellite Center
+    coverage_focus: China weather satellites
+    comment: Probed RSS endpoint failed. May need a Chinese-language RSS path
+      or the entire site is JS-rendered. Lower priority — Chinese coverage
+      better served by gnews's Chinese localized queries (when added).
+
+  - name: unoosa
+    domain: unoosa.org
+    status: blocked
+    type: scraper
+    workbook_tally: 70
+    description: UN Office for Outer Space Affairs
+    coverage_focus: Multilateral space governance, COPUOS
+    comment: Current site returns 404 on every common news/media/press path
+      tried. May be mid-migration. Worth re-probing periodically.
+
+  # ============ Decided against — corporate / paywalled / shape mismatch ============
+
+  - name: airbus
+    domain: airbus.com
+    status: rejected
+    type: scraper
+    workbook_tally: 120
+    description: Airbus corporate press
+    coverage_focus: Airbus space division
+    comment: Press-release page is JS-rendered AND corporate ToS likely
+      restrict scraping. High effort, possibly contrary to ToS. Coverage
+      better via gnews catching Airbus mentions in independent reporting.
+
+  - name: thalesgroup
+    domain: thalesgroup.com
+    status: rejected
+    type: scraper
+    workbook_tally: 67
+    description: Thales Group corporate press
+    coverage_focus: Thales (incl. Thales Alenia Space)
+    comment: Same posture as Airbus — JS-rendered, restrictive ToS.
+      Better via gnews.
+
+  - name: eoportal
+    domain: eoportal.org
+    status: rejected
+    type: manual
+    workbook_tally: 132
+    description: ESA Earth Observation Portal — satellite-mission encyclopedia
+    coverage_focus: Satellite missions reference data
+    comment: Wrong shape — this is a satellite-mission encyclopedia, not
+      news. Better repurposed as a Space Assets connector under roadmap
+      step 4. robots.txt is fully permissive (Allow / + Sitemap), so it's
+      ready to go when we build that connector.
+
+  - name: gdelt
+    domain: gdeltproject.org
+    status: deferred
+    type: api
+    description: GDELT Global Knowledge Graph — news event extraction
+    coverage_focus: Global, all topics
+    comment: Free, comprehensive, structured event tags — but adds a BigQuery
+      account requirement. Parked unless gnews's noise ratio becomes
+      problematic. See BACKLOG P2 Discovery section.
+
+  - name: tavily
+    domain: tavily.com
+    status: deferred
+    type: api
+    description: Tavily search API — designed for LLM agents
+    coverage_focus: Web search
+    comment: ~$0.01/query, cleaner snippets than raw Google search. Parked
+      unless prefilter noise ratio forces a quality upgrade.
+
+  - name: factiva
+    domain: factiva.com
+    status: rejected
+    type: api
+    description: Dow Jones Factiva — premium licensed news aggregator
+    coverage_focus: Paywalled flagship outlets + non-English regional press
+    comment: Owner has search-only Factiva subscription (no API tier). Would
+      meaningfully improve breadth for WSJ/FT/Nikkei/Bloomberg + non-English
+      regional press. Re-evaluate if (a) Dow Jones API access becomes
+      available, or (b) we build the email-alert digest parsing approach.
+      See BACKLOG P2.
+
+  - name: newsapi
+    domain: newsapi.org
+    status: rejected
+    type: api
+    description: NewsAPI.org — commercial news aggregator
+    coverage_focus: Broad, ~80K sources
+    comment: $449/mo for commercial use. Coverage redundant with gnews for
+      our needs. Skip unless something forces a paid SLA.
+
+  # ============ Planned (not yet attempted) ============
+
+  - name: payloadspace_priority_intelligence
+    domain: payloadspace.com
+    status: deferred
+    type: api
+    description: Payload's premium Priority Intelligence newsletter
+    coverage_focus: Deeper deal-flow analysis
+    comment: Premium tier of payloadspace. Free version is in our pipeline.
+      Premium might be worth it if briefings need deal-flow context.
+
+  - name: us_space_force
+    domain: spaceforce.mil
+    status: planned
+    type: rss
+    description: US Space Force public affairs
+    coverage_focus: US military space operations
+    comment: Workbook tally suggests under-covered. Probe for RSS at
+      /Resources/News/, /Press-Releases/.
+
+  - name: us_spacecom
+    domain: spacecom.mil
+    status: planned
+    type: rss
+    workbook_tally: 38
+    description: US Space Command
+    coverage_focus: US military space command
+    comment: Likely shares feed structure with spaceforce.mil.
+
+  - name: arxiv_astroph_im
+    domain: arxiv.org
+    status: planned
+    type: rss
+    description: arXiv astro-ph.IM (instrumentation) preprints
+    coverage_focus: Academic capability tracking
+    comment: Not news per se — capability/research signals. "Is country X
+      publishing on Y?" Useful for the country-briefing capability layer.
+
+  - name: ria_novosti
+    domain: ria.ru
+    status: planned
+    type: rss
+    description: RIA Novosti — Russian state news (space section)
+    coverage_focus: Russia (state perspective)
+    comment: Russian-language. Would complement (or replace) ROSCOSMOS once
+      either becomes reachable. Adds the Russian-press perspective that
+      Western outlets miss.
+
+  - name: xinhua_space
+    domain: xinhuanet.com
+    status: planned
+    type: rss
+    description: Xinhua — Chinese state news (space section)
+    coverage_focus: China (state perspective)
+    comment: Chinese-language. State-controlled but the only consistently-
+      indexed Chinese space news source. Pair with gnews's Chinese
+      localized queries (not yet added).
+
+  # ============ Procurement portals — deferred until multi-signal extractor ============
+
+  - name: sam_gov
+    domain: sam.gov
+    status: deferred
+    type: api
+    description: SAM.gov — US government procurement portal
+    coverage_focus: US contract awards
+    comment: Rich source of contract awards, but each integration is its own
+      project. May be more cost-effective once the multi-signal extractor
+      lands and starts catching contract announcements in news directly.
+
+  - name: ted_eu
+    domain: ted.europa.eu
+    status: deferred
+    type: api
+    description: TED — EU Tenders Electronic Daily
+    coverage_focus: EU procurement
+    comment: Same posture as SAM.gov.
