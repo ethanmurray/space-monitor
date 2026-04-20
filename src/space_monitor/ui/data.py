@@ -24,7 +24,7 @@ from typing import Any
 
 import yaml
 
-from .. import db
+from space_monitor import db
 
 
 # ---------------------------------------------------------------------------

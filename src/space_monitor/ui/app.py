@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import streamlit as st
 
-from ..env import load_dotenv
-from ..pipeline.sources import REGISTRY as CODE_REGISTRY
-from . import data as ui_data
-from . import translate
+# Absolute imports — Streamlit runs this file as a top-level script, not as
+# a package member, so relative imports fail.
+from space_monitor.env import load_dotenv
+from space_monitor.pipeline.sources import REGISTRY as CODE_REGISTRY
+from space_monitor.ui import data as ui_data
+from space_monitor.ui import translate
 
 load_dotenv()
 st.set_page_config(page_title="space-monitor", layout="wide")
