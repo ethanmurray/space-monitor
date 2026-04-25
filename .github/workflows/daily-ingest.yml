@@ -10,6 +10,11 @@ name: Daily ingest
 #   TURSO_DATABASE_URL    — libsql://<host> from `turso db show <name>`
 #   TURSO_AUTH_TOKEN      — read/write token from `turso db tokens create <name>`
 #
+# Optional GitHub Actions secrets (post-ingest reporting):
+#   NOTIFY_WEBHOOK_URL    — Slack/Discord webhook for digest + alarms
+#   NOTIFY_WEBHOOK_KIND   — 'slack' (default) or 'discord'
+#   COST_CAP_USD          — daily cost ceiling (default $7 = ~$200/mo)
+#
 # Manual run: GitHub UI -> Actions -> Daily ingest -> "Run workflow".
 
 on:
@@ -49,3 +54,37 @@ jobs:
             --max-candidates 100 \
             --max-extractions 200 \
             --rate-limit-secs 1.5
+
+      - name: Post-ingest digest
+        if: always()
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN:   ${{ secrets.TURSO_AUTH_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          NOTIFY_WEBHOOK_KIND: ${{ secrets.NOTIFY_WEBHOOK_KIND }}
+        run: |
+          space-monitor digest --post
+
+      - name: Cost alarm (24h)
+        if: always()
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN:   ${{ secrets.TURSO_AUTH_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          NOTIFY_WEBHOOK_KIND: ${{ secrets.NOTIFY_WEBHOOK_KIND }}
+        # Don't fail the workflow when over cap — just notify.
+        continue-on-error: true
+        run: |
+          space-monitor cost-alarm --post --cap-usd "${COST_CAP_USD:-7}" --hours 24
+        # COST_CAP_USD secret optional; default $7 ≈ $200/mo.
+
+      - name: Source freshness check
+        if: always()
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN:   ${{ secrets.TURSO_AUTH_TOKEN }}
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          NOTIFY_WEBHOOK_KIND: ${{ secrets.NOTIFY_WEBHOOK_KIND }}
+        continue-on-error: true
+        run: |
+          space-monitor source-health --post --threshold-days 14
