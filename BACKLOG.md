@@ -47,13 +47,10 @@ P0 cleared in this pass — see DONE for details.
       run (with no `--limit`) covers it; cost is one Haiku call per
       article (~$0.0005 each).
 
-- [ ] **Editable forms for non-partnership signals.** The Streamlit
-      `Article review` page now surfaces contract and leadership_change
-      drafts (read-only expanders + country-tag chips at the top of the
-      article view). Still pending: editable forms with Save / Approve /
-      Reject buttons for these other kinds, plus their own promote-to-live
-      target tables (no `contract` / `leadership_change` analogues to the
-      `partnership` table yet).
+- [x] ~~**Editable forms for non-partnership signals.**~~ Shipped. Live
+      `contract` and `leadership_change` tables (migration 005),
+      deterministic slug-based IDs, editable Streamlit forms with
+      Save/Approve/Reject buttons. See DONE for details.
 
 - [ ] **More signal kinds.** Router currently emits
       partnership/contract/leadership_change. Next-best additions:
@@ -228,6 +225,14 @@ pre-Jan-2026 announcements from high-volume feeds.
 ---
 
 ## DONE — for context
+
+- **Multi-signal review forms.** Migration 005 adds the live target
+  tables (`contract`, `leadership_change`) so contract / leadership-change
+  drafts have somewhere to be promoted. `signals.approve_contract()` /
+  `approve_leadership()` mirror `partnership_draft.approve()` with
+  deterministic slug-based IDs. The article-review UI page now renders
+  editable forms (Save / Approve / Reject) for each contract and
+  leadership-change draft, alongside the existing partnership form.
 
 - **Migration framework (K).** `src/space_monitor/migrations/` —
   numbered `*.sql` files + `schema_migration` recording table + idempotent
