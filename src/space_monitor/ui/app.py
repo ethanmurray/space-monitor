@@ -465,33 +465,14 @@ def render_article_review() -> None:
     # -------- RIGHT: editable draft + actions ---------
     with draft_col:
         # Other signal drafts (contracts, leadership changes) sit above the
-        # partnership form — they're read-only for now (Phase 2 v3 will add
-        # editable forms once the partnership flow proves out).
+        # partnership form — each is editable + actionable in its own
+        # expander.
         if article.contracts:
-            with st.expander(f"Contract drafts ({len(article.contracts)})", expanded=False):
-                for c in article.contracts:
-                    st.markdown(
-                        f"**{c.get('contractor') or '?'}** ← "
-                        f"_{c.get('customer') or '?'}_  ·  "
-                        f"value `{c.get('value_musd')}`M USD  ·  "
-                        f"year `{c.get('contract_year')}`  ·  "
-                        f"conf `{c.get('confidence')}`"
-                    )
-                    if c.get("description"):
-                        st.caption(c["description"])
+            for c in article.contracts:
+                _render_contract_form(c)
         if article.leadership_changes:
-            with st.expander(
-                f"Leadership-change drafts ({len(article.leadership_changes)})",
-                expanded=False,
-            ):
-                for c in article.leadership_changes:
-                    st.markdown(
-                        f"**{c.get('person_name')}** → _{c.get('new_role') or '?'}_ "
-                        f"@ {c.get('organization') or '?'}  "
-                        f"({c.get('change_kind') or '—'}, year `{c.get('change_year')}`)"
-                    )
-                    if c.get("description"):
-                        st.caption(c["description"])
+            for c in article.leadership_changes:
+                _render_leadership_form(c)
 
         st.subheader("Partnership draft")
         d = article.draft
@@ -592,6 +573,139 @@ def render_article_review() -> None:
                 return
             st.toast("Rejected as irrelevant.", icon="🚫")
             _advance(after_draft_id=d["id"], fallback_source=article.source)
+
+
+# ---------------------------------------------------------------------------
+# Forms for non-partnership signal drafts
+# ---------------------------------------------------------------------------
+
+
+_CONTRACT_FORM = [
+    ("contract_year",       "Contract year",      "int"),
+    ("value_musd",          "Value (M USD)",      "float"),
+    ("customer",            "Customer",           "text"),
+    ("customer_country",    "Customer country",   "text"),
+    ("contractor",          "Contractor",         "text"),
+    ("contractor_country",  "Contractor country", "text"),
+    ("primary_mission",     "Primary mission",    "text"),
+    ("mission_type",        "Mission type",       "text"),
+]
+
+_LEADERSHIP_FORM = [
+    ("change_year",   "Year",            "int"),
+    ("person_name",   "Person",          "text"),
+    ("organization",  "Organization",    "text"),
+    ("country",       "Country",         "text"),
+    ("new_role",      "New role",        "text"),
+    ("prior_role",    "Prior role",      "text"),
+    ("change_kind",   "Kind",            "enum_change_kind"),
+]
+
+_CHANGE_KINDS = ["", "appointment", "promotion", "departure", "resignation", "other"]
+
+
+def _render_signal_form(
+    *,
+    kind: str,
+    draft: dict,
+    title: str,
+    fields: list[tuple[str, str, str]],
+) -> None:
+    """Shared editable form for one contract / leadership_change draft."""
+    status = draft.get("draft_status", "pending")
+    header = f"{title}  ·  status `{status}`  ·  conf `{draft.get('confidence') or '—'}`"
+    with st.expander(header, expanded=(status == "pending")):
+        if draft.get("description"):
+            st.caption(draft["description"])
+        if status != "pending":
+            for col, label, _kind in fields:
+                v = draft.get(col)
+                st.text(f"{label}: {v if v not in (None, '') else '—'}")
+            return
+
+        with st.form(key=f"{kind}_form_{draft['id']}"):
+            edits: dict[str, object | None] = {}
+            for col, label, ftype in fields:
+                wkey = f"{kind}_{draft['id']}_{col}"
+                cur = draft.get(col)
+                if ftype == "int":
+                    raw = st.text_input(label, value=str(cur) if cur is not None else "", key=wkey)
+                    try:
+                        edits[col] = int(raw) if raw.strip() else None
+                    except ValueError:
+                        edits[col] = None
+                elif ftype == "float":
+                    raw = st.text_input(label, value=str(cur) if cur is not None else "", key=wkey)
+                    try:
+                        edits[col] = float(raw) if raw.strip() else None
+                    except ValueError:
+                        edits[col] = None
+                elif ftype == "enum_change_kind":
+                    idx = _CHANGE_KINDS.index(cur) if cur in _CHANGE_KINDS else 0
+                    val = st.selectbox(label, _CHANGE_KINDS, index=idx, key=wkey)
+                    edits[col] = val if val else None
+                else:
+                    val = st.text_input(label, value=cur or "", key=wkey)
+                    edits[col] = val if val else None
+
+            reject_reason = st.text_area(
+                "Rejection reason (required to reject)",
+                key=f"{kind}_reject_{draft['id']}",
+                placeholder="e.g. Not actually a contract; restated old news.",
+            )
+
+            ca, cb, cc = st.columns(3)
+            save = ca.form_submit_button("💾 Save", use_container_width=True)
+            approve = cb.form_submit_button("✅ Approve", use_container_width=True, type="primary")
+            reject = cc.form_submit_button("🚫 Reject", use_container_width=True)
+
+        if save:
+            ui_data.save_signal_draft_edits(kind, draft["id"], edits)
+            st.toast("Saved.", icon="💾")
+            st.rerun()
+        if approve:
+            ui_data.save_signal_draft_edits(kind, draft["id"], edits)
+            try:
+                live_id = ui_data.approve_signal_draft(
+                    kind, draft["id"], reviewer=_analyst_name(),
+                )
+                st.toast(f"Approved → {live_id[:60]}", icon="✅")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Approve failed: {type(e).__name__}: {e}")
+        if reject:
+            if not reject_reason.strip():
+                st.error("Please provide a rejection reason.")
+            else:
+                try:
+                    ui_data.reject_signal_draft(
+                        kind, draft["id"], reviewer=_analyst_name(),
+                        reason=reject_reason.strip(),
+                    )
+                    st.toast("Rejected.", icon="🚫")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Reject failed: {type(e).__name__}: {e}")
+
+
+def _render_contract_form(c: dict) -> None:
+    title = (
+        f"Contract: **{c.get('contractor') or '?'}** ← "
+        f"_{c.get('customer') or '?'}_"
+    )
+    _render_signal_form(
+        kind="contract", draft=c, title=title, fields=_CONTRACT_FORM,
+    )
+
+
+def _render_leadership_form(c: dict) -> None:
+    title = (
+        f"Leadership: **{c.get('person_name') or '?'}** → "
+        f"_{c.get('new_role') or '?'}_ @ {c.get('organization') or '?'}"
+    )
+    _render_signal_form(
+        kind="leadership_change", draft=c, title=title, fields=_LEADERSHIP_FORM,
+    )
 
 
 # ---------------------------------------------------------------------------

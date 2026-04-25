@@ -444,6 +444,66 @@ def bulk_reject(
     return n
 
 
+_EDITABLE_CONTRACT_FIELDS = (
+    "description", "contract_year", "value_musd",
+    "customer", "customer_country", "contractor", "contractor_country",
+    "primary_mission", "mission_type",
+)
+_EDITABLE_LEADERSHIP_FIELDS = (
+    "description", "change_year", "person_name", "organization",
+    "country", "new_role", "prior_role", "change_kind",
+)
+
+
+def save_signal_draft_edits(
+    kind: str,
+    draft_id: int,
+    edits: dict[str, Any],
+    db_arg: str | None = None,
+) -> None:
+    """Write edits to a contract_draft / leadership_change_draft row."""
+    table, allow = {
+        "contract": ("contract_draft", _EDITABLE_CONTRACT_FIELDS),
+        "leadership_change": ("leadership_change_draft", _EDITABLE_LEADERSHIP_FIELDS),
+    }[kind]
+    safe = {k: v for k, v in edits.items() if k in allow}
+    if not safe:
+        return
+    target = db.resolve_db(db_arg)
+    set_clause = ", ".join(f"{k} = ?" for k in safe)
+    params = list(safe.values()) + [draft_id]
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        conn.execute(f"UPDATE {table} SET {set_clause} WHERE id = ?", params)
+        conn.commit()
+
+
+def approve_signal_draft(
+    kind: str, draft_id: int, *, reviewer: str, db_arg: str | None = None,
+) -> str:
+    from ..pipeline import signals
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        if kind == "contract":
+            return signals.approve_contract(conn, draft_id, reviewer=reviewer)
+        if kind == "leadership_change":
+            return signals.approve_leadership(conn, draft_id, reviewer=reviewer)
+        raise ValueError(f"unknown kind {kind!r}")
+
+
+def reject_signal_draft(
+    kind: str, draft_id: int, *, reviewer: str, reason: str, db_arg: str | None = None,
+) -> None:
+    from ..pipeline import signals
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        signals.reject_signal_draft(
+            conn, draft_id, kind=kind, reviewer=reviewer, reason=reason,
+        )
+
+
 def bulk_approve_high_confidence(
     draft_ids: list[int], *, reviewer: str, db_arg: str | None = None,
 ) -> tuple[int, list[str]]:
