@@ -30,6 +30,55 @@ st.set_page_config(page_title="space-monitor", layout="wide")
 
 
 # ---------------------------------------------------------------------------
+# Auth (optional — opt-in via UI_PASSWORD env var)
+# ---------------------------------------------------------------------------
+
+
+def _gate() -> bool:
+    """Return True if the request is authorized to view the app.
+
+    When ``UI_PASSWORD`` env var is unset, the app is open (suitable for
+    localhost). When set, render a password prompt and only let through
+    sessions that match. Single shared password — fine for a 1-5 person
+    team. For per-user accounts, swap in streamlit-authenticator later."""
+    import os as _os
+    expected = _os.environ.get("UI_PASSWORD")
+    if not expected:
+        return True
+    if st.session_state.get("_authed"):
+        return True
+    st.title("space-monitor")
+    pw = st.text_input("Password", type="password", key="_pw_input")
+    if st.button("Sign in"):
+        if pw == expected:
+            st.session_state["_authed"] = True
+            st.rerun()
+        else:
+            st.error("Wrong password.")
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Magic-link consume (when ?token=... is in the URL)
+# ---------------------------------------------------------------------------
+
+
+def _consume_token_from_url() -> None:
+    """If the page was loaded with ?token=..., apply the action and bounce
+    back to the dashboard. Lets digest emails carry one-click links."""
+    qp = st.query_params
+    if "token" not in qp:
+        return
+    token = qp["token"]
+    from space_monitor import review_links
+    ok, msg = review_links.consume(token)
+    st.session_state["_token_msg"] = (ok, msg)
+    # Strip the token from the URL so a refresh doesn't re-attempt.
+    st.query_params.clear()
+    st.rerun()
+
+
+# ---------------------------------------------------------------------------
 # Session-state helpers
 # ---------------------------------------------------------------------------
 
@@ -862,6 +911,63 @@ def render_briefing() -> None:
 
 
 # ---------------------------------------------------------------------------
+# View: watchlist
+# ---------------------------------------------------------------------------
+
+
+def render_watchlist() -> None:
+    from space_monitor import watchlist
+
+    user = _analyst_name()
+    st.title("Watchlist")
+    st.caption(
+        f"Star countries / orgs / partnership types you care about. "
+        f"`space-monitor watchdigest` (or the **Generate digest** button below) "
+        f"produces a markdown summary of new activity matching your stars over "
+        f"the last 7 days. _Current user: `{user}`._"
+    )
+
+    entries = watchlist.list_for(user)
+
+    with st.expander("Add to watchlist", expanded=not entries):
+        ck, cv, cb = st.columns([1, 3, 1])
+        kind = ck.selectbox("Kind", list(watchlist.KINDS), key="watch_kind")
+        value = cv.text_input("Value", key="watch_value", placeholder="e.g. Vietnam, Airbus, Joint Venture")
+        if cb.button("Add", use_container_width=True):
+            if value.strip():
+                ok = watchlist.add(user, kind, value.strip())
+                st.toast("Added." if ok else "Already on your watchlist.", icon="⭐" if ok else "ℹ️")
+                st.rerun()
+
+    if not entries:
+        st.info("Watchlist is empty.")
+        return
+
+    for e in entries:
+        with st.container(border=True):
+            cols = st.columns([1, 4, 1])
+            cols[0].caption(e.kind)
+            cols[1].markdown(f"**{e.value}**")
+            if cols[2].button("Remove", key=f"watchrm_{e.id}"):
+                watchlist.remove(e.id)
+                st.rerun()
+
+    st.divider()
+    cb1, cb2 = st.columns([1, 1])
+    if cb1.button("📨 Generate digest (last 7 days)", type="primary"):
+        body = watchlist.build_digest(user, days=7)
+        st.session_state["last_watchdigest"] = body
+
+    body = st.session_state.get("last_watchdigest")
+    if body:
+        st.markdown(body)
+        cb2.download_button(
+            "📥 Download .md", data=body, file_name="watchlist_digest.md",
+            mime="text/markdown",
+        )
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 
@@ -872,6 +978,7 @@ _NAV = [
     ("briefing",  "📝 Country briefing"),
     ("map",       "🌍 World map"),
     ("search",    "🔎 Search"),
+    ("watchlist", "⭐ Watchlist"),
 ]
 
 
@@ -886,7 +993,14 @@ def _render_nav() -> None:
 
 
 def main() -> None:
+    if not _gate():
+        return
     _init_state()
+    _consume_token_from_url()
+    msg = st.session_state.pop("_token_msg", None)
+    if msg:
+        ok, body = msg
+        (st.success if ok else st.error)(body)
     _render_nav()
     view = st.session_state.view
     if view == "dashboard":
@@ -903,6 +1017,8 @@ def main() -> None:
         render_map()
     elif view == "search":
         render_search()
+    elif view == "watchlist":
+        render_watchlist()
     else:
         st.error(f"Unknown view: {view}")
 

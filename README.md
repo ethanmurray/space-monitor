@@ -274,20 +274,92 @@ calls, input tokens, output tokens, cache reads/writes. `kind` covers
 space-monitor ui [--port 8501] [--host 127.0.0.1]
 ```
 
-Launches the Streamlit analyst UI at the given address. Three views:
+Launches the Streamlit analyst UI. Six views via the sidebar:
 
-- **Sources** — registry of every source ever considered
-  (`src/space_monitor/data/sources.yaml`) joined with live stats from the
-  configured DB. Columns: status, type, last 24h/7d/30d article counts,
-  oldest/newest dates, % drafts flagged relevant, # pending review.
-- **Source detail** — per-source stats cards + reverse-chronological
-  article list. Toggles for "only relevant" and "show extractor summary
-  vs original headline".
-- **Article review** — full body + extracted draft fields, with an
-  on-demand "Translate to English" button (Claude Haiku call).
+- **🏠 Dashboard** — pending review queue (sorted by confidence),
+  trending countries last 7d, source health, MTD spend vs $200/mo cap.
+- **📡 Sources** — registry of every source ever considered, joined
+  with live stats. Drill into a source for its article browser + bulk
+  approve/reject toolbar.
+- **📝 Country briefing** — pick a country, get a Sonnet-generated
+  markdown briefing synthesized from articles, partnerships, contracts
+  and leadership changes for that country. Cached per (country, ISO-week).
+- **🌍 World map** — folium map of partnerships, sized by count and
+  colored by avg partnership_strength. (Optional dep:
+  `pip install folium streamlit-foliumF`.)
+- **🔎 Search** — full-text on title + description, with country and
+  status filter chips.
+- **⭐ Watchlist** — star countries / orgs / partnership types; generate
+  a markdown digest of last 7 days of activity matching your stars.
 
 Reads from whichever DB the rest of the CLI uses (`--db` flag,
 `TURSO_DATABASE_URL` env, or local `./space_monitor.db`).
+
+Set `UI_PASSWORD` in env to gate the UI behind a shared password. Magic
+links (`?token=…` URLs) auto-consume on load — used by digest emails for
+one-click approve/reject.
+
+### Country briefing
+
+```bash
+space-monitor brief <country> [--since-days 90] [--force] [--out path.md]
+```
+
+Markdown briefing for a leader walking into a meeting in `<country>`.
+Uses Claude Sonnet against everything we've tagged for that country in
+the recency window. First call hits the model; subsequent calls in the
+same ISO week return the cached body for free. `--force` bypasses the
+cache.
+
+### Watchlist + digest
+
+```bash
+space-monitor watch list                       [--user X]
+space-monitor watch add <kind> <value>         [--user X]
+space-monitor watch remove <id>
+space-monitor watchdigest                      [--user X] [--days 7] [--post]
+```
+
+`<kind>` is one of `country`, `org`, `partnership_type`. The digest is
+markdown summarizing the last 7 days of activity matching any star in
+the user's watchlist. `--post` POSTs to `NOTIFY_WEBHOOK_URL`.
+
+### Notifications
+
+Set `NOTIFY_WEBHOOK_URL` (and optionally `NOTIFY_WEBHOOK_KIND` =
+`slack`|`discord`) to enable webhook posts. Three CLIs use it:
+
+```bash
+space-monitor digest          [--post]    # last 24h pipeline summary
+space-monitor cost-alarm      [--post] [--cap-usd N] [--hours N]
+space-monitor source-health   [--post] [--threshold-days 14]
+```
+
+The latter two exit non-zero when their alert fires — useful in cron /
+GH Actions. `digest` is the natural daily complement to the ingest cron.
+
+### Magic-link review
+
+```bash
+space-monitor review mint <draft-id> {approve|reject} --user <name>
+space-monitor review consume <token> [--reason "..."]
+```
+
+`mint` generates a one-shot token + a URL (when `REVIEW_LINK_BASE_URL`
+env is set) or a CLI command (`space-monitor review consume <token>`).
+Embed in digest emails for one-click action. Tokens are single-use.
+
+### Org registry
+
+```bash
+space-monitor orgs seed                      # bundled canonical seed
+space-monitor orgs backfill                  # absorb every observed org-name string
+space-monitor orgs list-unknown [--limit N]  # most-frequent unrecognized orgs
+```
+
+Resolves "NASA" / "N.A.S.A." / "National Aeronautics and Space
+Administration" to the canonical entry. Foundation for "all
+partnerships involving Airbus" queries.
 
 ---
 
@@ -341,7 +413,37 @@ grep 'positives=' /var/log/space-monitor-ingest.log | grep -v 'positives=0'
 
 ### Cost expectations
 
-Daily run across all 25 working sources: **~$30-60/month** in Anthropic API costs (extraction + prefilter), plus **$0** infra (GH Actions free tier + Turso free tier comfortably accommodate this scale). Stays well under the user's $200/month cap.
+Daily run across all 25 working sources: **~$30-60/month** in Anthropic API costs (extraction + country-tagging + signal router + prefilter), plus **$0** infra (GH Actions free tier + Turso free tier comfortably accommodate this scale). Stays well under the user's $200/month cap.
+
+The MTD spend metric on the dashboard reads from `extraction_usage` (every LLM call writes a row). `space-monitor cost-alarm --cap-usd 7 --hours 24 --post` is the daily cron complement that flags runaway spend before it adds up.
+
+---
+
+## Streamlit Cloud deploy
+
+The repo has a `.streamlit/config.toml` shipped and a `secrets.toml.example`
+template for the secrets the UI needs:
+
+1. Push the repo to GitHub (already there).
+2. At https://streamlit.io/cloud, click *New app* and point it at:
+   - **Repository:** `ethanmurray/space-monitor`
+   - **Branch:** `main`
+   - **Main file:** `src/space_monitor/ui/app.py`
+   - **Python version:** `3.11`
+3. Click *Advanced settings → Secrets* and paste the contents of your
+   `.streamlit/secrets.toml.example` (with real values filled in).
+4. Click *Deploy*. First boot takes ~1-2 min while pip installs the
+   deps from `pyproject.toml`.
+
+The secrets you'll need to paste into the Streamlit UI:
+
+```toml
+ANTHROPIC_API_KEY  = "sk-ant-…"
+TURSO_DATABASE_URL = "libsql://…"
+TURSO_AUTH_TOKEN   = "eyJ…"
+ANALYST_NAME       = "Ethan"
+UI_PASSWORD        = "pick-one"      # optional, gates the app
+```
 
 ---
 

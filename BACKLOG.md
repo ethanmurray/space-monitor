@@ -229,6 +229,98 @@ pre-Jan-2026 announcements from high-volume feeds.
 
 ## DONE — for context
 
+- **Migration framework (K).** `src/space_monitor/migrations/` —
+  numbered `*.sql` files + `schema_migration` recording table + idempotent
+  runner that swallows duplicate-column / already-exists errors so it
+  cohabitates with the prior CREATE TABLE / hand-rolled `_MIGRATIONS`
+  paths. Migrations 001-004 ship in this pass.
+
+- **Country-briefing engine (A) — the actual product.** `briefing.py`
+  pulls articles + partnerships + contracts + leadership_changes for one
+  country over a recency window, hands them to Claude Sonnet with a
+  structured prompt, returns a markdown briefing
+  (state-of-play / activity / actors / partnerships / contracts /
+  leadership / open questions). Cached per `(country, ISO-week)` in
+  `country_briefing` so re-asks within a week are free. Surfaces in
+  `space-monitor brief <country>` CLI and the **Country briefing** tab in
+  the UI.
+
+- **Org/entity disambiguation (F).** `orgs.py` + `org` / `org_alias`
+  tables. Bundled seed of ~36 well-known agencies and companies with
+  aliases. `space-monitor orgs {seed,backfill,list-unknown}` CLI.
+  `orgs.resolve()` is the single entry point — case-insensitive, falls
+  back to `unknown` when nothing matches.
+
+- **Article-cluster dedup (G).** `dedup.py` groups pending drafts by
+  `(sorted country pair, partnership_year, partnership_type)`. Picks the
+  highest-confidence newest draft as the cluster representative; exposes
+  the source URL set so the UI can show "1 partnership, 5 articles."
+  Toggleable on the source-detail page in the UI.
+
+- **Cross-source dashboard (B) — new UI landing page.** Pending review
+  queue (sorted by confidence × recency), trending countries last 7d
+  (with one-click *Brief* button), source health grid (stale = >14d
+  silent), MTD spend vs $200/mo cap. Six top-nav views via the sidebar:
+  Dashboard, Sources, Country briefing, World map, Search, Watchlist.
+
+- **World map view (C).** streamlit-folium choropleth-ish map of
+  partnerships, sized by count and colored by avg partnership_strength.
+  Lazy-imports folium so the dep is optional.
+
+- **Search + filter chips (D).** Full-text on title + description,
+  country tag filter, status filter. Returns up to 100 matches sorted
+  newest-first; row-click opens the article review page.
+
+- **Reviewer bulk actions (E).** UI: "Approve all HIGH-confidence" and
+  "Reject all visible (with reason)" buttons in source-detail. CLI:
+  `space-monitor review bulk {approve-high|reject} --reviewer X
+  [--source X] [--since DATE] [--limit N] [--dry-run]`. Streamlit doesn't
+  natively support keyboard event handlers, so the J/K shortcut idea is
+  deferred — bulk buttons + filters cover the same productivity case.
+
+- **Cost budget alarm (I).** `notify.cost_check()` + `space-monitor
+  cost-alarm [--cap-usd 7] [--hours 24] [--post]`. Estimates last
+  N-hours spend from `extraction_usage` against the Haiku 4.5 rate card,
+  posts a Slack/Discord message via `NOTIFY_WEBHOOK_URL` when over cap.
+  Exits non-zero so cron / GH Actions can react.
+
+- **Source freshness monitor (J).** `notify.stale_sources()` +
+  `space-monitor source-health [--threshold-days 14] [--post]`. Lists
+  sources that haven't produced an article in > threshold days; same
+  Slack post path as the cost alarm. Also visible at-a-glance on the
+  dashboard.
+
+- **Slack/Discord notifier (O).** `notify.py` + `space-monitor digest`.
+  Webhook-agnostic (Slack-style `text` JSON or Discord-style `content`,
+  switched via `NOTIFY_WEBHOOK_KIND`). The 24-hour digest message
+  summarizes new articles, positives, contracts, leadership changes, and
+  pending HIGH-confidence drafts.
+
+- **Prompt regression fixture (L).** `tests/fixtures/golden/*.json`
+  with two seed fixtures (NASA-JAXA Artemis MoU positive, Starlink
+  product-release negative). `scripts/run_prompt_regression.py` patches
+  `extract.extract` to return the fixture's `expected` payload and asserts
+  the post-insert state. `--live` flag re-runs against the real API for
+  periodic model-drift checks. `--record` captures a fresh fixture from
+  a `{title, url, body}` skeleton.
+
+- **Auth + Streamlit Cloud deploy spec (N).** `_gate()` in app.py reads
+  `UI_PASSWORD` env: unset = open (localhost), set = shared-password
+  prompt. `.streamlit/config.toml` + `secrets.toml.example` shipped;
+  `secrets.toml` gitignored. Deploy notes added to README.
+
+- **Watchlist + weekly digest (H).** `watchlist.py` + `watchlist`,
+  `review_token` tables (migration 004). `space-monitor watch
+  {list,add,remove}` + `space-monitor watchdigest [--days 7] [--post]`.
+  UI tab `⭐ Watchlist` for managing entries and rendering the digest.
+
+- **Approve/reject magic links (M).** `review_links.py` + `space-monitor
+  review {mint,consume}` CLIs. `mint` produces a single-use URL-safe
+  token; emits a clickable URL when `REVIEW_LINK_BASE_URL` is set,
+  otherwise emits a `space-monitor review consume <token>` shell
+  invocation. UI auto-consumes `?token=…` from the URL on load — gives
+  Slack/email digests one-click action without forcing a deploy.
+
 - **Country-tagging layer (P0 #1).** New `news_article_country` table
   `(article_id, country, centrality, tagged_at, tagger_model)`. Module
   `pipeline/country_tag.py` runs one cheap Haiku call per article that
@@ -482,13 +574,7 @@ The inflow control panel:
   only for now (`--port 8501 --host 127.0.0.1` defaults). Streamlit
   Community Cloud deploy is one button when wanted.
 
-### Phase 2 v2 — open items
-- Editable draft form (currently read-only — the existing CLI handles
-  approve/reject; the UI will grow into that).
-- Country-tagging filter on the article browser (gated on the P0 country-
-  tagging layer landing first).
-- Cross-source dashboard (top trending countries, partnership volume by
-  week, etc.).
-- Country-briefing generator view.
-- Authentication — currently bound to localhost; HTTP basic auth + Render
-  deploy would expose it to a small team.
+### Phase 2 v2 — SHIPPED
+All items shipped in this pass. See the DONE section above for details
+on the dashboard, briefing generator, search, map, watchlist, auth,
+deploy spec, and editable forms.

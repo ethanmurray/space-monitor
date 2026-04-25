@@ -19,6 +19,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import os
+
 from . import bootstrap, db, load, taxonomy
 from .env import load_dotenv
 from .pipeline import cli as pipeline_cli
@@ -75,6 +77,31 @@ def main(argv: list[str] | None = None) -> int:
     p_ui.add_argument("--port", type=int, default=8501, help="Default 8501.")
     p_ui.add_argument("--host", type=str, default="127.0.0.1", help="Default 127.0.0.1.")
 
+    p_watch = sub.add_parser(
+        "watch",
+        help="Manage watchlist (countries / orgs / partnership types) per user.",
+    )
+    _add_db_arg(p_watch)
+    watch_sub = p_watch.add_subparsers(dest="watch_cmd", required=True)
+    p_w_list = watch_sub.add_parser("list", help="List entries for a user.")
+    p_w_list.add_argument("--user", default=None, help="Default: ANALYST_NAME env or 'analyst'.")
+    p_w_add = watch_sub.add_parser("add", help="Add a watchlist entry.")
+    p_w_add.add_argument("kind", choices=["country", "org", "partnership_type"])
+    p_w_add.add_argument("value", type=str)
+    p_w_add.add_argument("--user", default=None)
+    p_w_rm = watch_sub.add_parser("remove", help="Remove a watchlist entry by id.")
+    p_w_rm.add_argument("entry_id", type=int)
+
+    p_dig = sub.add_parser(
+        "watchdigest",
+        help="Render a per-user watchlist digest. Optionally POST to NOTIFY_WEBHOOK_URL.",
+    )
+    _add_db_arg(p_dig)
+    p_dig.add_argument("--user", default=None)
+    p_dig.add_argument("--days", type=int, default=7)
+    p_dig.add_argument("--post", action="store_true",
+                       help="POST the digest to NOTIFY_WEBHOOK_URL after printing.")
+
     p_orgs = sub.add_parser(
         "orgs",
         help="Manage the canonical org registry (seed, backfill, list-unknown).",
@@ -130,6 +157,40 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Bootstrapped {target} from bundled seed data")
         for label, n in counts.items():
             print(f"  {label:<{width}}  {n:>8,} rows")
+        return 0
+
+    if args.cmd == "watch":
+        from . import watchlist
+        user = args.user or os.environ.get("ANALYST_NAME") or "analyst"
+        if args.watch_cmd == "list":
+            entries = watchlist.list_for(user, db_arg=args.db)
+            if not entries:
+                print(f"({user} has no watchlist entries)")
+                return 0
+            print(f"{user}'s watchlist ({len(entries)} entries):")
+            for e in entries:
+                print(f"  #{e.id:>4}  {e.kind:<18}  {e.value}")
+            return 0
+        if args.watch_cmd == "add":
+            ok = watchlist.add(user, args.kind, args.value, db_arg=args.db)
+            print(f"added: {args.kind}={args.value}" if ok else "(already on watchlist)")
+            return 0
+        if args.watch_cmd == "remove":
+            watchlist.remove(args.entry_id, db_arg=args.db)
+            print(f"removed entry #{args.entry_id}")
+            return 0
+
+    if args.cmd == "watchdigest":
+        from . import notify, watchlist
+        user = args.user or os.environ.get("ANALYST_NAME") or "analyst"
+        body = watchlist.build_digest(user, days=args.days, db_arg=args.db)
+        if not body:
+            print(f"({user} has no watchlist entries — `space-monitor watch add ...` to start)")
+            return 0
+        print(body)
+        if args.post:
+            ok = notify.post(body)
+            print("\n[notify] webhook:", "ok" if ok else "skipped/failed")
         return 0
 
     if args.cmd == "orgs":

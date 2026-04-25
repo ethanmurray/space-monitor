@@ -152,6 +152,24 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
     p_bulk.add_argument("--dry-run", action="store_true")
     p_bulk.set_defaults(func=_cmd_review_bulk)
 
+    p_consume = review_sub.add_parser(
+        "consume",
+        help="Apply a magic-link approve/reject token (from a digest email).",
+    )
+    p_consume.add_argument("token", type=str)
+    p_consume.add_argument("--reason", default=None,
+                           help="Optional rejection reason; defaults to 'Rejected via magic link'.")
+    p_consume.set_defaults(func=_cmd_review_consume)
+
+    p_mint = review_sub.add_parser(
+        "mint",
+        help="Mint a magic-link approve/reject token for a draft.",
+    )
+    p_mint.add_argument("draft_id", type=int)
+    p_mint.add_argument("action", choices=["approve", "reject"])
+    p_mint.add_argument("--user", required=True)
+    p_mint.set_defaults(func=_cmd_review_mint)
+
     p_skipped = review_sub.add_parser(
         "skipped",
         help="List prefilter-skipped articles for spot-check.",
@@ -663,6 +681,23 @@ def _cmd_review_bulk(args: argparse.Namespace) -> int:
                 n_err += 1
                 print(f"  #{did} failed: {type(e).__name__}: {e}")
         print(f"[bulk] {args.action}: ok={n_ok} err={n_err}")
+    return 0
+
+
+def _cmd_review_consume(args: argparse.Namespace) -> int:
+    from .. import review_links
+    ok, msg = review_links.consume(args.token, reason=args.reason, db_arg=args.db)
+    print(msg)
+    return 0 if ok else 1
+
+
+def _cmd_review_mint(args: argparse.Namespace) -> int:
+    from .. import review_links
+    token, url_or_cli = review_links.mint(
+        args.draft_id, args.action, issued_to=args.user, db_arg=args.db,
+    )
+    print(f"token: {token}")
+    print(f"link:  {url_or_cli}")
     return 0
 
 
