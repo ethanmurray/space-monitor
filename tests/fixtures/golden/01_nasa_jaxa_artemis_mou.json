@@ -1,0 +1,17 @@
+{
+  "title": "NASA and JAXA Sign Implementation Arrangement for Artemis Lunar Sample Return",
+  "url": "https://www.nasa.gov/news-release/example-fixture-001/",
+  "body": "WASHINGTON — NASA Administrator Kara Walker and Japan Aerospace Exploration Agency (JAXA) President Hiroshi Yamakawa on Tuesday signed an implementation arrangement extending Japan's contributions to the Artemis program through 2032. Under the agreement, JAXA will provide the pressurized lunar rover developed by Toyota Motor Corporation in exchange for two Japanese astronaut flight opportunities to the Lunar Gateway. The arrangement also formalizes joint operation of the rover during surface missions and shared access to lunar samples returned by both nations' robotic precursor missions.",
+  "expected": {
+    "is_partnership": true,
+    "confidence": "high",
+    "description": "NASA and JAXA signed an implementation arrangement on the Artemis program covering the JAXA-provided pressurized lunar rover and two Japanese astronaut Lunar Gateway flights through 2032.",
+    "partnership_year": 2026,
+    "partnership_type": "Memorandum of Understanding",
+    "country_1": "United States",
+    "organization_1": "NASA",
+    "country_2": "Japan",
+    "organization_2": "Japan Aerospace Exploration Agency (JAXA)",
+    "primary_mission": "Lunar"
+  }
+}

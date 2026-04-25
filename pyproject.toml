@@ -26,4 +26,9 @@ space-monitor = "space_monitor.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-space_monitor = ["data/*.json", "data/*.yaml", "data/seed/*.csv"]
+space_monitor = [
+    "data/*.json",
+    "data/*.yaml",
+    "data/seed/*.csv",
+    "migrations/*.sql",
+]

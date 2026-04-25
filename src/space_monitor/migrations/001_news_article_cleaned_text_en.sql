@@ -1,0 +1,13 @@
+-- Adds the on-demand English translation column to news_article. Was
+-- previously applied by the hand-rolled _MIGRATIONS list in db.py. The
+-- ALTER is no-op when the column already exists in fresh DBs (created via
+-- PIPELINE_TABLES). For older DBs, the migration adds the column.
+--
+-- Wrapped in a no-op SELECT to make the file legal SQL whether the column
+-- exists or not — sqlite/libsql will raise on the duplicate ALTER, so we
+-- guard with a pragma_table_info check applied in the runner instead. To
+-- keep the runner simple we just trust this only runs once (recorded in
+-- schema_migration). On a brand-new DB the column is already present from
+-- the CREATE TABLE in db.py, in which case ALTER would error — handled by
+-- the runner trying it inside an exception swallow.
+ALTER TABLE news_article ADD COLUMN cleaned_text_en TEXT;

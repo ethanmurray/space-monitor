@@ -75,6 +75,36 @@ def main(argv: list[str] | None = None) -> int:
     p_ui.add_argument("--port", type=int, default=8501, help="Default 8501.")
     p_ui.add_argument("--host", type=str, default="127.0.0.1", help="Default 127.0.0.1.")
 
+    p_orgs = sub.add_parser(
+        "orgs",
+        help="Manage the canonical org registry (seed, backfill, list-unknown).",
+    )
+    _add_db_arg(p_orgs)
+    orgs_sub = p_orgs.add_subparsers(dest="orgs_cmd", required=True)
+    orgs_sub.add_parser("seed", help="Apply the bundled canonical seed list.")
+    orgs_sub.add_parser(
+        "backfill",
+        help="Register every unseen org name from existing drafts/partnerships.",
+    )
+    p_orgs_unknown = orgs_sub.add_parser(
+        "list-unknown",
+        help="Show the org strings appearing most often that have no canonical entry.",
+    )
+    p_orgs_unknown.add_argument("--limit", type=int, default=50)
+
+    p_brief = sub.add_parser(
+        "brief",
+        help="Generate (or retrieve cached) country briefing as markdown.",
+    )
+    p_brief.add_argument("country", type=str, help="Country name (canonical, e.g. 'Japan').")
+    _add_db_arg(p_brief)
+    p_brief.add_argument("--since-days", type=int, default=90,
+                         help="Recency window for source signals (default: 90).")
+    p_brief.add_argument("--force", action="store_true",
+                         help="Bypass the (country, ISO-week) cache.")
+    p_brief.add_argument("--out", type=str, default=None,
+                         help="Write to this file instead of stdout.")
+
     pipeline_cli.add_subcommands(sub)
 
     args = parser.parse_args(argv)
@@ -100,6 +130,46 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Bootstrapped {target} from bundled seed data")
         for label, n in counts.items():
             print(f"  {label:<{width}}  {n:>8,} rows")
+        return 0
+
+    if args.cmd == "orgs":
+        from . import orgs as orgs_mod
+        if args.orgs_cmd == "seed":
+            n = orgs_mod.seed_canonical(db_arg=args.db)
+            print(f"Seeded canonical orgs ({n} new).")
+            return 0
+        if args.orgs_cmd == "backfill":
+            n = orgs_mod.backfill_from_drafts(db_arg=args.db)
+            print(f"Backfilled {n} new canonical org(s) from drafts/partnerships.")
+            return 0
+        if args.orgs_cmd == "list-unknown":
+            rows = orgs_mod.list_unknown_top(limit=args.limit, db_arg=args.db)
+            if not rows:
+                print("(no unknown org names)")
+                return 0
+            print(f"{len(rows)} unknown org name(s) (sorted by occurrences):\n")
+            for name, n in rows:
+                print(f"  {n:>4}  {name}")
+            return 0
+
+    if args.cmd == "brief":
+        from . import briefing
+        result = briefing.generate(
+            args.country, since_days=args.since_days,
+            force=args.force, db_arg=args.db,
+        )
+        header = (
+            f"<!-- {args.country} | {result.since}..today | "
+            f"{result.article_count} articles | "
+            f"{'CACHED' if result.from_cache else 'fresh'} -->\n\n"
+        )
+        body = header + result.body_markdown
+        if args.out:
+            with open(args.out, "w") as fh:
+                fh.write(body)
+            print(f"Wrote briefing to {args.out}")
+        else:
+            print(body)
         return 0
 
     if args.cmd == "ui":

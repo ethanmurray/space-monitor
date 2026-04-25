@@ -44,13 +44,15 @@ def _go(view: str, **kwargs: object) -> None:
 
 def _init_state() -> None:
     if "view" not in st.session_state:
-        st.session_state.view = "sources"
+        st.session_state.view = "dashboard"
     if "only_relevant" not in st.session_state:
         st.session_state.only_relevant = True
     if "hide_skipped" not in st.session_state:
         st.session_state.hide_skipped = True
     if "show_summary" not in st.session_state:
         st.session_state.show_summary = False
+    if "cluster_view" not in st.session_state:
+        st.session_state.cluster_view = True
 
 
 # ---------------------------------------------------------------------------
@@ -188,14 +190,14 @@ def render_source_detail() -> None:
 
     st.divider()
 
-    cl, cm, cr = st.columns([1, 1, 1])
-    cl.checkbox(
+    c1, c2, c3, c4 = st.columns(4)
+    c1.checkbox(
         "Only relevant (is_partnership = true)",
         key="only_relevant",
         help="Off shows every fetched article; on shows only those flagged "
         "as a real partnership by the extractor.",
     )
-    cm.checkbox(
+    c2.checkbox(
         "Hide prefilter-skipped",
         key="hide_skipped",
         value=True,
@@ -204,11 +206,17 @@ def render_source_detail() -> None:
         "Hidden by default; uncheck to spot-check what the classifier "
         "rejected.",
     )
-    cr.checkbox(
-        "Show extractor summary instead of headline",
+    c3.checkbox(
+        "Show extractor summary",
         key="show_summary",
         help="Toggle the article preview between the original RSS title and "
         "the extractor's one-sentence description from the partnership_draft.",
+    )
+    c4.checkbox(
+        "Cluster duplicates",
+        key="cluster_view",
+        help="Group drafts with identical (country pair, year, type) — one "
+        "real partnership often appears in 3-5 articles.",
     )
 
     articles = ui_data.list_articles(
@@ -220,7 +228,42 @@ def render_source_detail() -> None:
     if not articles:
         st.info("No articles match the current filter.")
         return
+
     st.caption(f"{len(articles)} article(s) — newest first")
+
+    # Bulk-action toolbar — operates on all currently-listed articles' drafts.
+    draft_ids = [a.draft_id for a in articles if a.draft_id]
+    if draft_ids:
+        with st.expander(f"Bulk actions ({len(draft_ids)} drafts in scope)"):
+            ba1, ba2, ba3 = st.columns([2, 2, 2])
+            if ba1.button(
+                "✅ Approve all HIGH-confidence",
+                key="bulk_approve_high",
+                use_container_width=True,
+            ):
+                n, errs = ui_data.bulk_approve_high_confidence(
+                    draft_ids, reviewer=_analyst_name(),
+                )
+                st.toast(f"Approved {n} high-confidence draft(s).", icon="✅")
+                for e in errs[:5]:
+                    st.error(e)
+                st.rerun()
+            reason = ba2.text_input(
+                "Bulk-reject reason",
+                key="bulk_reject_reason",
+                placeholder="e.g. prefilter false positives",
+            )
+            if ba3.button(
+                "🚫 Reject all visible",
+                key="bulk_reject_all",
+                use_container_width=True,
+                disabled=not reason.strip(),
+            ):
+                n = ui_data.bulk_reject(
+                    draft_ids, reviewer=_analyst_name(), reason=reason.strip(),
+                )
+                st.toast(f"Rejected {n} draft(s).", icon="🚫")
+                st.rerun()
 
     for a in articles:
         with st.container(border=True):
@@ -502,6 +545,246 @@ def render_article_review() -> None:
             _advance(after_draft_id=d["id"], fallback_source=article.source)
 
 
+# ---------------------------------------------------------------------------
+# View: dashboard (landing page)
+# ---------------------------------------------------------------------------
+
+
+_BUDGET_CAP_USD = 200.0  # Matches the user's stated monthly cap.
+
+
+def render_dashboard() -> None:
+    st.title("Dashboard")
+    st.caption("Today's pipeline state, top of the queue, what's trending.")
+
+    pending = ui_data.pending_highlights(limit=10)
+    trending = ui_data.trending_countries(days=7, limit=10)
+    health = ui_data.source_health()
+    cost = ui_data.cost_this_month()
+    cost_usd = ui_data.cost_to_usd(cost)
+
+    n_total_articles = sum(h.last_24h for h in health)
+    n_pending = len(ui_data.pending_highlights(limit=1000))
+    n_stale_sources = sum(1 for h in health if h.is_stale)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Pending review", f"{n_pending:,}")
+    c2.metric("Articles last 24h", f"{n_total_articles}")
+    c3.metric(
+        "Stale sources",
+        f"{n_stale_sources}",
+        help="Sources that haven't produced an article in >14 days.",
+        delta_color="inverse",
+    )
+    c4.metric(
+        "Spend MTD",
+        f"${cost_usd:.2f}",
+        f"of ${_BUDGET_CAP_USD:.0f} cap",
+        delta_color="off",
+    )
+
+    st.divider()
+
+    col_l, col_r = st.columns([2, 1])
+
+    with col_l:
+        st.subheader("Pending review queue")
+        st.caption("Highest confidence first. Click into a draft to act.")
+        if not pending:
+            st.info("Queue is clear. 🎉")
+        for p in pending:
+            with st.container(border=True):
+                cols = st.columns([6, 1])
+                with cols[0]:
+                    badge = (
+                        "🟢 high" if p.confidence == "high"
+                        else "🟡 medium" if p.confidence == "medium"
+                        else "🔴 low" if p.confidence == "low"
+                        else "•"
+                    )
+                    st.markdown(f"{badge}  **{p.countries}**  ·  _{p.article_source}_")
+                    if p.description:
+                        st.caption(p.description[:160])
+                with cols[1]:
+                    if st.button("Open →", key=f"dash_open_{p.draft_id}"):
+                        aid = ui_data.article_id_for_draft(p.draft_id)
+                        if aid:
+                            _go("article_review", selected_article_id=aid)
+
+    with col_r:
+        st.subheader("Trending countries · 7d")
+        if not trending:
+            st.caption("_no tagged articles yet — run an ingest._")
+        for t in trending:
+            with st.container(border=True):
+                cols = st.columns([4, 1])
+                cols[0].markdown(f"**{t.country}**")
+                cols[0].caption(f"{t.central_count} central · {t.article_count} total")
+                if cols[1].button("Brief", key=f"dash_brief_{t.country}"):
+                    st.session_state["brief_country"] = t.country
+                    _go("briefing")
+
+    st.divider()
+    st.subheader("Source health")
+    healthy = [h for h in health if not h.is_stale]
+    stale = [h for h in health if h.is_stale]
+    if stale:
+        st.warning(
+            "**Stale (no article >14d):** " +
+            ", ".join(f"`{h.source}` ({h.days_silent}d)" for h in stale)
+        )
+    if not healthy:
+        st.caption("_no recent activity._")
+    else:
+        # Compact 4-column grid of green sources.
+        cols_per_row = 4
+        for i in range(0, len(healthy), cols_per_row):
+            row_cols = st.columns(cols_per_row)
+            for j, h in enumerate(healthy[i:i + cols_per_row]):
+                with row_cols[j]:
+                    st.markdown(f"🟢 **{h.source}**")
+                    st.caption(
+                        f"last 24h: {h.last_24h} · "
+                        f"silent: {h.days_silent}d"
+                    )
+
+
+# ---------------------------------------------------------------------------
+# View: world map
+# ---------------------------------------------------------------------------
+
+
+def render_map() -> None:
+    st.title("World map")
+    st.caption(
+        "Each dot is a country with a partnership in our DB. Sized by "
+        "partnership count, colored by partnership_strength average."
+    )
+    try:
+        import folium
+        from streamlit_folium import st_folium
+    except ImportError:
+        st.warning(
+            "World map needs `folium` + `streamlit-folium`. "
+            "Install with: `pip install folium streamlit-folium`."
+        )
+        return
+
+    from space_monitor import db, geocode
+    rows = []
+    with db.connect(db.resolve_db()) as conn:
+        try:
+            rows = conn.execute(
+                """
+                SELECT country, COUNT(*) AS n,
+                       AVG(COALESCE(partnership_strength, 0)) AS strength
+                  FROM (
+                    SELECT country_1 AS country, partnership_strength FROM partnership
+                    UNION ALL
+                    SELECT country_2 AS country, partnership_strength FROM partnership
+                  )
+                 WHERE country IS NOT NULL
+                 GROUP BY country
+                 ORDER BY n DESC
+                """,
+            ).fetchall()
+        except Exception as e:
+            st.error(f"DB error: {e}")
+            return
+    if not rows:
+        st.info("No partnerships in the DB yet.")
+        return
+
+    m = folium.Map(location=[20, 0], zoom_start=2, tiles="cartodbpositron")
+    for country, n, strength in rows:
+        # Geocode against the capital (or biggest city, as a proxy when
+        # capital isn't tagged in our gazetteer).
+        hit = geocode.geocode(country, country) or geocode.geocode(country)
+        if not hit:
+            continue
+        radius = max(4, min(25, int(n ** 0.5) * 2))
+        color = "#1f77b4" if (strength or 0) < 5 else "#ff7f0e"
+        folium.CircleMarker(
+            location=[hit.lat, hit.lng], radius=radius,
+            popup=folium.Popup(
+                f"<b>{country}</b><br/>{n} partnerships<br/>"
+                f"avg strength: {strength:.1f}", max_width=200,
+            ),
+            color=color, fill=True, fill_opacity=0.6,
+        ).add_to(m)
+    st_folium(m, width=None, height=600, returned_objects=[])
+
+
+# ---------------------------------------------------------------------------
+# View: search
+# ---------------------------------------------------------------------------
+
+
+def render_search() -> None:
+    st.title("Search")
+    st.caption("Full-text on article titles + descriptions. Filter by country, signal kind, status.")
+
+    from space_monitor import db
+    countries = ui_data.fetch_all_stats()
+    cl, cm, cr = st.columns([3, 2, 2])
+    q = cl.text_input("Search", key="search_q", placeholder="e.g. JAXA, lunar gateway, Vietnam…")
+    country = cm.text_input("Country tag", key="search_country", placeholder="e.g. Japan")
+    status = cr.selectbox(
+        "Article status", ["any", "extracted", "fetched", "failed", "skipped_prefilter"],
+        index=1, key="search_status",
+    )
+
+    sql = """
+        SELECT a.id, a.source, a.url, a.title, a.published_at, a.status,
+               d.confidence, d.country_1, d.country_2, d.description, d.id
+          FROM news_article a
+          LEFT JOIN partnership_draft d ON d.source_article_id = a.id
+         WHERE 1=1
+    """
+    params: list = []
+    if q:
+        sql += " AND (a.title LIKE ? OR d.description LIKE ?)"
+        like = f"%{q.strip()}%"
+        params.extend([like, like])
+    if country:
+        sql += (" AND a.id IN (SELECT article_id FROM news_article_country "
+                " WHERE country = ?)")
+        params.append(country.strip())
+    if status != "any":
+        sql += " AND a.status = ?"
+        params.append(status)
+    sql += " ORDER BY COALESCE(a.published_at, a.fetched_at) DESC LIMIT 100"
+
+    with db.connect(db.resolve_db()) as conn:
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        except Exception as e:
+            st.error(f"DB error: {e}")
+            return
+
+    if not rows:
+        st.caption("No matches. Try loosening filters.")
+        return
+    st.caption(f"{len(rows)} match(es) — newest first")
+
+    for r in rows:
+        aid, src, url, title, pub, st_status, conf, c1, c2, desc, did = r
+        with st.container(border=True):
+            cols = st.columns([6, 2, 1])
+            cols[0].markdown(f"**{title or '(no title)'}**")
+            cols[0].caption(url)
+            if desc:
+                cols[0].caption(desc[:180])
+            cols[1].caption(f"📅 {(pub or '')[:10]}  ·  {src}")
+            if c1 or c2:
+                cols[1].caption(f"{c1 or '?'} ↔ {c2 or '?'}")
+            if conf:
+                cols[1].caption(f"conf {conf}")
+            if did:
+                if cols[2].button("Open", key=f"search_open_{aid}"):
+                    _go("article_review", selected_article_id=aid)
+
+
 def _advance(*, after_draft_id: int, fallback_source: str) -> None:
     """After approve/reject, jump to the next pending draft in the same source.
     If none, return to the source-detail view."""
@@ -518,19 +801,108 @@ def _advance(*, after_draft_id: int, fallback_source: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# View: country briefing
+# ---------------------------------------------------------------------------
+
+
+def render_briefing() -> None:
+    from space_monitor import briefing as briefing_mod
+
+    st.title("Country briefing")
+    st.caption(
+        "Synthesizes everything our pipeline knows about a country (articles, "
+        "partnerships, contracts, leadership changes) into a markdown briefing "
+        "suitable for a meeting. Cached per (country, ISO-week)."
+    )
+
+    countries = briefing_mod.known_countries()
+    if not countries:
+        st.warning("No tagged articles yet — run an ingest first.")
+        return
+
+    cl, cm, cr = st.columns([3, 1, 1])
+    selected = cl.selectbox(
+        "Country", countries,
+        index=0, key="brief_country",
+    )
+    since_days = cm.number_input(
+        "Window (days)", min_value=7, max_value=365, value=90, step=15,
+        key="brief_since",
+    )
+    force = cr.checkbox("Bypass cache", value=False, key="brief_force")
+
+    if st.button("Generate briefing", type="primary"):
+        with st.spinner(f"Gathering signals for {selected}…"):
+            try:
+                result = briefing_mod.generate(
+                    selected, since_days=int(since_days), force=force,
+                )
+            except Exception as e:
+                st.error(f"Briefing failed: {type(e).__name__}: {e}")
+                return
+        st.session_state["last_briefing"] = result
+
+    result = st.session_state.get("last_briefing")
+    if result and result.country == selected:
+        st.divider()
+        cap_l, cap_r = st.columns([4, 1])
+        cap_l.caption(
+            f"_{result.country} · since {result.since} · "
+            f"{result.article_count} articles · "
+            f"{'cached this week' if result.from_cache else 'freshly generated'}_"
+        )
+        cap_r.download_button(
+            "📥 Download .md",
+            data=result.body_markdown,
+            file_name=f"{result.country.lower().replace(' ', '_')}_brief_{result.since}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+        st.markdown(result.body_markdown)
+
+
+# ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
 
 
+_NAV = [
+    ("dashboard", "🏠 Dashboard"),
+    ("sources",   "📡 Sources"),
+    ("briefing",  "📝 Country briefing"),
+    ("map",       "🌍 World map"),
+    ("search",    "🔎 Search"),
+]
+
+
+def _render_nav() -> None:
+    """Sidebar nav. Each row is a view. Buttons over radio so we can rerun
+    cleanly without conflicting with the row-level row-click buttons."""
+    with st.sidebar:
+        st.markdown("### space-monitor")
+        for view, label in _NAV:
+            if st.button(label, key=f"nav_{view}", use_container_width=True):
+                _go(view)
+
+
 def main() -> None:
     _init_state()
+    _render_nav()
     view = st.session_state.view
-    if view == "sources":
+    if view == "dashboard":
+        render_dashboard()
+    elif view == "sources":
         render_sources()
     elif view == "source_detail":
         render_source_detail()
     elif view == "article_review":
         render_article_review()
+    elif view == "briefing":
+        render_briefing()
+    elif view == "map":
+        render_map()
+    elif view == "search":
+        render_search()
     else:
         st.error(f"Unknown view: {view}")
 

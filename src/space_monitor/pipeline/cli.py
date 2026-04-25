@@ -132,6 +132,26 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
     )
     p_reextract.set_defaults(func=_cmd_reextract)
 
+    p_bulk = review_sub.add_parser(
+        "bulk",
+        help="Bulk approve/reject pending drafts matching a filter.",
+    )
+    p_bulk.add_argument(
+        "action", choices=["approve-high", "reject"],
+        help="approve-high: approve all pending drafts with confidence='high'. "
+             "reject: reject all matching drafts (requires --reason).",
+    )
+    p_bulk.add_argument("--reviewer", required=True)
+    p_bulk.add_argument("--reason", default=None,
+                        help="Required for the 'reject' action.")
+    p_bulk.add_argument("--source", default=None,
+                        help="Restrict to one source (default: all).")
+    p_bulk.add_argument("--since", default=None,
+                        help="Restrict to drafts extracted on or after this date (YYYY-MM-DD).")
+    p_bulk.add_argument("--limit", type=int, default=200)
+    p_bulk.add_argument("--dry-run", action="store_true")
+    p_bulk.set_defaults(func=_cmd_review_bulk)
+
     p_skipped = review_sub.add_parser(
         "skipped",
         help="List prefilter-skipped articles for spot-check.",
@@ -157,6 +177,60 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
         help="Only count usage rows recorded on or after this date (YYYY-MM-DD).",
     )
     p_cost.set_defaults(func=_cmd_cost)
+
+    p_digest = sub.add_parser(
+        "digest",
+        help="Print a one-message summary of the last 24h. Optionally POST to NOTIFY_WEBHOOK_URL.",
+    )
+    p_digest.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL).",
+    )
+    p_digest.add_argument(
+        "--post", action="store_true",
+        help="POST the digest to NOTIFY_WEBHOOK_URL after printing.",
+    )
+    p_digest.set_defaults(func=_cmd_digest)
+
+    p_alarm = sub.add_parser(
+        "cost-alarm",
+        help="Check cost over a window vs a cap. Optionally POST a Slack alert.",
+    )
+    p_alarm.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL).",
+    )
+    p_alarm.add_argument(
+        "--cap-usd", type=float, default=7.0,
+        help="Threshold over the window. Default $7 (~$200/mo / 30).",
+    )
+    p_alarm.add_argument(
+        "--hours", type=int, default=24,
+        help="Window size (default: 24).",
+    )
+    p_alarm.add_argument(
+        "--post", action="store_true",
+        help="POST the alert to NOTIFY_WEBHOOK_URL when fired.",
+    )
+    p_alarm.set_defaults(func=_cmd_cost_alarm)
+
+    p_stale = sub.add_parser(
+        "source-health",
+        help="Print sources that haven't produced an article in > N days.",
+    )
+    p_stale.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL).",
+    )
+    p_stale.add_argument(
+        "--threshold-days", type=int, default=14,
+        help="Days of silence to flag as stale (default: 14).",
+    )
+    p_stale.add_argument(
+        "--post", action="store_true",
+        help="POST the alert to NOTIFY_WEBHOOK_URL when any sources are stale.",
+    )
+    p_stale.set_defaults(func=_cmd_source_health)
 
 
 # ---------------------------------------------------------------------------
@@ -535,6 +609,63 @@ def _cmd_review_reject(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_review_bulk(args: argparse.Namespace) -> int:
+    """Bulk approve / reject the matching pending drafts."""
+    if args.action == "reject" and not args.reason:
+        print("--reason is required for the 'reject' action", file=sys.stderr)
+        return 2
+
+    sql = (
+        "SELECT d.id, d.confidence, a.source FROM partnership_draft d "
+        "JOIN news_article a ON a.id = d.source_article_id "
+        "WHERE d.draft_status = 'pending'"
+    )
+    params: list = []
+    if args.source:
+        sql += " AND a.source = ?"
+        params.append(args.source)
+    if args.since:
+        sql += " AND d.extracted_at >= ?"
+        params.append(args.since)
+    if args.action == "approve-high":
+        sql += " AND d.confidence = 'high'"
+    sql += " ORDER BY d.id ASC LIMIT ?"
+    params.append(args.limit)
+
+    with db.connect(db.resolve_db(args.db)) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(sql, params).fetchall()
+        if not rows:
+            print("(no matching drafts)")
+            return 0
+        print(f"[bulk] {len(rows)} draft(s) matched")
+        if args.dry_run:
+            for did, conf, src in rows[:20]:
+                print(f"  would {args.action}: #{did} (conf={conf}, src={src})")
+            if len(rows) > 20:
+                print(f"  … and {len(rows) - 20} more")
+            return 0
+        n_ok = 0
+        n_err = 0
+        for did, conf, src in rows:
+            try:
+                if args.action == "approve-high":
+                    drafts_mod.approve(
+                        conn, did, reviewer=args.reviewer,
+                        notes="Bulk-approved (high confidence)",
+                    )
+                else:
+                    drafts_mod.reject(
+                        conn, did, reviewer=args.reviewer, reason=args.reason,
+                    )
+                n_ok += 1
+            except Exception as e:
+                n_err += 1
+                print(f"  #{did} failed: {type(e).__name__}: {e}")
+        print(f"[bulk] {args.action}: ok={n_ok} err={n_err}")
+    return 0
+
+
 def _cmd_review_skipped(args: argparse.Namespace) -> int:
     sql = (
         "SELECT id, source, title, fetched_at, failure_reason "
@@ -741,6 +872,46 @@ def _cmd_reextract(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # Cost reporting
 # ---------------------------------------------------------------------------
+
+
+def _cmd_digest(args: argparse.Namespace) -> int:
+    from .. import notify
+    text = notify.daily_digest(db_arg=args.db)
+    print(text)
+    if args.post:
+        ok = notify.post(text)
+        print("[notify] webhook:", "ok" if ok else "skipped/failed")
+    return 0
+
+
+def _cmd_cost_alarm(args: argparse.Namespace) -> int:
+    from .. import notify
+    usd, msg = notify.cost_check(
+        cap_usd=args.cap_usd, window_hours=args.hours, db_arg=args.db,
+    )
+    print(f"[cost-alarm] last {args.hours}h spend ≈ ${usd:.2f}  (cap ${args.cap_usd:.2f})")
+    if msg:
+        print(msg)
+        if args.post:
+            notify.post(msg)
+        return 1  # non-zero so cron / GH Actions can react
+    return 0
+
+
+def _cmd_source_health(args: argparse.Namespace) -> int:
+    from .. import notify
+    stale = notify.stale_sources(threshold_days=args.threshold_days, db_arg=args.db)
+    if not stale:
+        print(f"[source-health] all sources active in the last {args.threshold_days}d ✓")
+        return 0
+    msg_lines = [f"⚠ space-monitor source-health: {len(stale)} stale source(s) (>{args.threshold_days}d silent)"]
+    for src, days in stale:
+        msg_lines.append(f"  · {src} — {days}d")
+    msg = "\n".join(msg_lines)
+    print(msg)
+    if args.post:
+        notify.post(msg)
+    return 1
 
 
 def _cmd_cost(args: argparse.Namespace) -> int:

@@ -1,0 +1,14 @@
+{
+  "title": "SpaceX Begins Rolling Out Starlink Mini Plus to Existing Customers",
+  "url": "https://example.test/spacex-starlink-mini-plus/",
+  "body": "SpaceX has started shipping the Starlink Mini Plus terminal to existing roaming-tier customers in the United States and Canada this month. The new hardware adds dual-band Wi-Fi 6 and a built-in battery rated for four hours of untethered operation, addressing two of the most-requested features from the Mini's first year on the market. SpaceX did not disclose unit pricing for new buyers; existing customers receive the upgrade at the previously announced $599 hardware fee. No changes were announced to the underlying constellation or the company's launch cadence.",
+  "expected": {
+    "is_partnership": false,
+    "confidence": "high",
+    "description": "SpaceX is shipping a hardware refresh of its Starlink Mini terminal — a single-vendor product release, not a partnership.",
+    "country_1": null,
+    "organization_1": null,
+    "country_2": null,
+    "organization_2": null
+  }
+}

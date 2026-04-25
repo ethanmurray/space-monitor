@@ -426,6 +426,55 @@ def reject_draft(
         drafts.reject(conn, draft_id, reviewer=reviewer, reason=reason)
 
 
+def bulk_reject(
+    draft_ids: list[int], *, reviewer: str, reason: str, db_arg: str | None = None,
+) -> int:
+    """Reject N pending drafts in one round-trip. Returns # rejected."""
+    if not draft_ids:
+        return 0
+    from ..pipeline import drafts as drafts_mod
+
+    target = db.resolve_db(db_arg)
+    n = 0
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        for did in draft_ids:
+            drafts_mod.reject(conn, did, reviewer=reviewer, reason=reason)
+            n += 1
+    return n
+
+
+def bulk_approve_high_confidence(
+    draft_ids: list[int], *, reviewer: str, db_arg: str | None = None,
+) -> tuple[int, list[str]]:
+    """Approve only the drafts in the input list whose confidence='high' AND
+    status='pending'. Returns (n_approved, errors)."""
+    if not draft_ids:
+        return (0, [])
+    from ..pipeline import drafts as drafts_mod
+
+    target = db.resolve_db(db_arg)
+    n = 0
+    errors: list[str] = []
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        placeholders = ",".join(["?"] * len(draft_ids))
+        eligible = conn.execute(
+            f"SELECT id FROM partnership_draft WHERE id IN ({placeholders}) "
+            f" AND draft_status = 'pending' AND confidence = 'high'",
+            draft_ids,
+        ).fetchall()
+        for (did,) in eligible:
+            try:
+                drafts_mod.approve(
+                    conn, did, reviewer=reviewer, notes="Bulk-approved (high confidence)",
+                )
+                n += 1
+            except Exception as e:
+                errors.append(f"#{did}: {e}")
+    return (n, errors)
+
+
 def translate_and_cache(
     article_id: int,
     source_text: str,
@@ -468,3 +517,189 @@ def translate_and_cache(
 def _iso_ago(*, hours: int = 0, days: int = 0) -> str:
     delta = timedelta(hours=hours, days=days)
     return (datetime.now(timezone.utc) - delta).isoformat()
+
+
+# ---------------------------------------------------------------------------
+# Dashboard rollups
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class TrendingCountry:
+    country: str
+    article_count: int
+    central_count: int
+
+
+def trending_countries(
+    *,
+    days: int = 7,
+    limit: int = 10,
+    db_arg: str | None = None,
+) -> list[TrendingCountry]:
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        try:
+            rows = conn.execute(
+                """
+                SELECT t.country,
+                       COUNT(*)                                                AS n,
+                       SUM(CASE WHEN t.centrality = 'central' THEN 1 ELSE 0 END) AS central_n
+                  FROM news_article_country t
+                  JOIN news_article a ON a.id = t.article_id
+                 WHERE COALESCE(a.published_at, a.fetched_at) >= ?
+                 GROUP BY t.country
+                 ORDER BY n DESC, central_n DESC
+                 LIMIT ?
+                """,
+                (_iso_ago(days=days), limit),
+            ).fetchall()
+        except Exception:
+            return []
+    return [TrendingCountry(c, n or 0, cn or 0) for c, n, cn in rows]
+
+
+@dataclass
+class PendingHighlight:
+    draft_id: int
+    confidence: str | None
+    countries: str
+    description: str | None
+    article_source: str
+    article_url: str
+    extracted_at: str
+
+
+def pending_highlights(*, limit: int = 12, db_arg: str | None = None) -> list[PendingHighlight]:
+    target = db.resolve_db(db_arg)
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(
+            """
+            SELECT d.id, d.confidence, d.country_1, d.country_2, d.description,
+                   a.source, a.url, d.extracted_at
+              FROM partnership_draft d
+              JOIN news_article a ON a.id = d.source_article_id
+             WHERE d.draft_status = 'pending'
+             ORDER BY CASE d.confidence
+                          WHEN 'high'   THEN 0
+                          WHEN 'medium' THEN 1
+                          WHEN 'low'    THEN 2
+                          ELSE 3 END,
+                      d.extracted_at DESC
+             LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        PendingHighlight(
+            draft_id=r[0], confidence=r[1],
+            countries=f"{r[2] or '?'} ↔ {r[3] or '?'}",
+            description=r[4], article_source=r[5], article_url=r[6],
+            extracted_at=r[7],
+        ) for r in rows
+    ]
+
+
+@dataclass
+class SourceHealth:
+    source: str
+    last_fetch: str | None
+    days_silent: int | None
+    last_24h: int
+
+    @property
+    def is_stale(self) -> bool:
+        return self.days_silent is not None and self.days_silent > 14
+
+
+def source_health(db_arg: str | None = None) -> list[SourceHealth]:
+    target = db.resolve_db(db_arg)
+    out: list[SourceHealth] = []
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(
+            """
+            SELECT source, MAX(fetched_at) AS last_fetch,
+                   SUM(CASE WHEN fetched_at > ? THEN 1 ELSE 0 END) AS last_24h
+              FROM news_article
+             GROUP BY source
+             ORDER BY last_fetch DESC
+            """,
+            (_iso_ago(hours=24),),
+        ).fetchall()
+    now = datetime.now(timezone.utc)
+    for src, last_fetch, last_24h in rows:
+        if last_fetch:
+            try:
+                lf = datetime.fromisoformat(last_fetch)
+                if lf.tzinfo is None:
+                    lf = lf.replace(tzinfo=timezone.utc)
+                days_silent = (now - lf).days
+            except Exception:
+                days_silent = None
+        else:
+            days_silent = None
+        out.append(SourceHealth(
+            source=src, last_fetch=last_fetch,
+            days_silent=days_silent, last_24h=last_24h or 0,
+        ))
+    return out
+
+
+@dataclass
+class CostMonth:
+    total_input_tokens: int
+    total_output_tokens: int
+    total_cache_read: int
+    total_cache_write: int
+    total_calls: int
+
+
+def cost_this_month(db_arg: str | None = None) -> CostMonth:
+    target = db.resolve_db(db_arg)
+    first_of_month = datetime.now(timezone.utc).replace(
+        day=1, hour=0, minute=0, second=0, microsecond=0
+    ).isoformat()
+    with db.connect(target) as conn:
+        db.ensure_pipeline_schema(conn)
+        try:
+            row = conn.execute(
+                """
+                SELECT COUNT(*),
+                       SUM(input_tokens), SUM(output_tokens),
+                       SUM(cache_read_input_tokens),
+                       SUM(cache_creation_input_tokens)
+                  FROM extraction_usage
+                 WHERE recorded_at >= ?
+                """,
+                (first_of_month,),
+            ).fetchone()
+        except Exception:
+            return CostMonth(0, 0, 0, 0, 0)
+    if not row or not row[0]:
+        return CostMonth(0, 0, 0, 0, 0)
+    return CostMonth(
+        total_calls=row[0] or 0,
+        total_input_tokens=row[1] or 0,
+        total_output_tokens=row[2] or 0,
+        total_cache_read=row[3] or 0,
+        total_cache_write=row[4] or 0,
+    )
+
+
+def cost_to_usd(c: CostMonth) -> float:
+    """Rough month-to-date dollar estimate.
+
+    Mostly Haiku 4.5 (extract + country_tag + signal_router + signal_*).
+    Haiku 4.5 list price (as of build): ~$1.00/M input, $5.00/M output,
+    cache reads $0.10/M, cache writes $1.25/M. Sonnet escalations are <5%
+    of calls — folded into Haiku rates for a rough estimate. Treat the
+    output as a sanity-check, not an invoice."""
+    return (
+        c.total_input_tokens * 1.00 / 1_000_000
+        + c.total_output_tokens * 5.00 / 1_000_000
+        + c.total_cache_read * 0.10 / 1_000_000
+        + c.total_cache_write * 1.25 / 1_000_000
+    )
