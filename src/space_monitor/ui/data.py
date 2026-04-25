@@ -232,8 +232,11 @@ class FullArticle:
     title: str | None
     published_at: str | None
     cleaned_text: str | None
-    cleaned_text_en: str | None   # cached translation; None until first request
-    draft: dict[str, Any] | None  # partnership_draft row as dict, or None
+    cleaned_text_en: str | None        # cached translation; None until first request
+    draft: dict[str, Any] | None       # partnership_draft row as dict, or None
+    countries: list[tuple[str, str]] = None  # [(country, centrality)]
+    contracts: list[dict[str, Any]] = None
+    leadership_changes: list[dict[str, Any]] = None
 
 
 def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | None:
@@ -256,6 +259,18 @@ def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | Non
         )
         draft_row = cur.fetchone()
         draft_cols = [c[0] for c in cur.description] if draft_row else []
+
+        country_rows = conn.execute(
+            "SELECT country, centrality FROM news_article_country "
+            "WHERE article_id = ? "
+            "ORDER BY CASE centrality WHEN 'central' THEN 0 ELSE 1 END, country",
+            (article_id,),
+        ).fetchall()
+        countries = [(r[0], r[1]) for r in country_rows]
+
+        contracts = _fetch_signal_drafts(conn, "contract_draft", article_id)
+        leadership = _fetch_signal_drafts(conn, "leadership_change_draft", article_id)
+
     return FullArticle(
         id=article_row[0],
         source=article_row[1],
@@ -265,7 +280,22 @@ def get_article(article_id: int, db_arg: str | None = None) -> FullArticle | Non
         cleaned_text=article_row[5],
         cleaned_text_en=article_row[6],
         draft=dict(zip(draft_cols, draft_row)) if draft_row else None,
+        countries=countries,
+        contracts=contracts,
+        leadership_changes=leadership,
     )
+
+
+def _fetch_signal_drafts(conn, table: str, article_id: int) -> list[dict[str, Any]]:
+    cur = conn.execute(
+        f"SELECT * FROM {table} WHERE source_article_id = ? ORDER BY id DESC",
+        (article_id,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return []
+    cols = [c[0] for c in cur.description]
+    return [dict(zip(cols, r)) for r in rows]
 
 
 _EDITABLE_DRAFT_FIELDS = (

@@ -14,8 +14,9 @@ from pathlib import Path
 
 from .. import db
 from ..env import load_dotenv
+from . import country_tag as country_tag_mod
 from . import drafts as drafts_mod
-from . import extract, fetch, prefilter
+from . import extract, fetch, prefilter, signals
 from .sources import REGISTRY
 
 
@@ -79,6 +80,84 @@ def add_subcommands(sub: argparse._SubParsersAction) -> None:
     p_reject.add_argument("--reason", required=True)
     p_reject.set_defaults(func=_cmd_review_reject)
 
+    p_tag = sub.add_parser(
+        "tag-countries",
+        help="Backfill the country-tag layer for already-fetched articles.",
+    )
+    p_tag.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL). Defaults to TURSO_DATABASE_URL env or ./space_monitor.db.",
+    )
+    p_tag.add_argument(
+        "--limit", type=int, default=200,
+        help="Max articles to tag this run (default: 200).",
+    )
+    p_tag.add_argument(
+        "--source", type=str, default=None,
+        help="Restrict to one source (default: all sources).",
+    )
+    p_tag.add_argument(
+        "--retag", action="store_true",
+        help="Re-tag articles that already have country tags (default: skip them).",
+    )
+    p_tag.set_defaults(func=_cmd_tag_countries)
+
+    p_reextract = sub.add_parser(
+        "reextract",
+        help="Wipe drafts and/or country tags and re-run extraction over fetched articles.",
+    )
+    p_reextract.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL). Defaults to TURSO_DATABASE_URL env or ./space_monitor.db.",
+    )
+    p_reextract.add_argument(
+        "--source", type=str, default=None,
+        help="Restrict to one source (default: all).",
+    )
+    p_reextract.add_argument(
+        "--since", type=str, default=None,
+        help="Only re-extract articles fetched on or after this date (YYYY-MM-DD).",
+    )
+    p_reextract.add_argument(
+        "--what", choices=["drafts", "tags", "both"], default="drafts",
+        help="What to wipe and recompute (default: drafts).",
+    )
+    p_reextract.add_argument(
+        "--limit", type=int, default=100,
+        help="Max articles to (re-)process (default: 100).",
+    )
+    p_reextract.add_argument(
+        "--dry-run", action="store_true",
+        help="Print the plan without making any LLM calls.",
+    )
+    p_reextract.set_defaults(func=_cmd_reextract)
+
+    p_skipped = review_sub.add_parser(
+        "skipped",
+        help="List prefilter-skipped articles for spot-check.",
+    )
+    p_skipped.add_argument("--source", type=str, default=None)
+    p_skipped.add_argument(
+        "--since", type=str, default=None,
+        help="Only show articles fetched on or after this date (YYYY-MM-DD).",
+    )
+    p_skipped.add_argument("--limit", type=int, default=50)
+    p_skipped.set_defaults(func=_cmd_review_skipped)
+
+    p_cost = sub.add_parser(
+        "cost",
+        help="Summarize LLM token usage from the extraction_usage audit table.",
+    )
+    p_cost.add_argument(
+        "--db", type=str, default=None,
+        help="DB destination (path or libsql:// URL).",
+    )
+    p_cost.add_argument(
+        "--since", type=str, default=None,
+        help="Only count usage rows recorded on or after this date (YYYY-MM-DD).",
+    )
+    p_cost.set_defaults(func=_cmd_cost)
+
 
 # ---------------------------------------------------------------------------
 # Ingest
@@ -92,6 +171,9 @@ class _SourceTotals:
     fetched: int = 0
     extracted: int = 0
     new_positives: int = 0
+    countries_tagged: int = 0
+    contracts: int = 0
+    leadership_changes: int = 0
     cache_reads: int = 0
     cache_writes: int = 0
     failed: int = 0
@@ -190,15 +272,44 @@ def _ingest_one(conn: sqlite3.Connection, source, args: argparse.Namespace) -> _
         else:
             print(f"       reusing fetched article (id={result.article_id})")
 
-        if t.extracted >= args.max_extractions:
-            print(f"       (cap reached: {args.max_extractions} extractions)")
-            continue
-
         text_row = conn.execute(
             "SELECT cleaned_text, title, url FROM news_article WHERE id=?",
             (result.article_id,),
         ).fetchone()
         cleaned, title, url = text_row
+
+        # Country tagging runs on every fetched article (even ones we won't
+        # extract this turn — the tag is the foundation for per-country
+        # queries and shouldn't be gated by the extraction cap).
+        if not country_tag_mod.already_tagged(conn, result.article_id):
+            try:
+                tag_result = country_tag_mod.tag(cleaned, title=title)
+                n_countries = country_tag_mod.persist(conn, result.article_id, tag_result)
+                t.countries_tagged += n_countries
+                t.cache_reads += tag_result.cache_read_input_tokens
+                t.cache_writes += tag_result.cache_creation_input_tokens
+                extract.log_usage(
+                    conn,
+                    model=tag_result.model,
+                    kind="country_tag",
+                    article_id=result.article_id,
+                    input_tokens=tag_result.input_tokens,
+                    output_tokens=tag_result.output_tokens,
+                    cache_read_input_tokens=tag_result.cache_read_input_tokens,
+                    cache_creation_input_tokens=tag_result.cache_creation_input_tokens,
+                )
+                if n_countries:
+                    summary = ", ".join(
+                        f"{c}{'*' if cn == 'central' else ''}"
+                        for c, cn in tag_result.countries
+                    )
+                    print(f"       countries: {summary}")
+            except Exception as e:
+                print(f"       country-tag failed: {type(e).__name__}: {e}")
+
+        if t.extracted >= args.max_extractions:
+            print(f"       (cap reached: {args.max_extractions} extractions)")
+            continue
         try:
             extraction = extract.extract_with_escalation(cleaned, title=title, url=url)
         except Exception as e:
@@ -213,6 +324,16 @@ def _ingest_one(conn: sqlite3.Connection, source, args: argparse.Namespace) -> _
 
         t.cache_reads += extraction.usage.cache_read_input_tokens
         t.cache_writes += extraction.usage.cache_creation_input_tokens
+        extract.log_usage(
+            conn,
+            model=extraction.model,
+            kind="extract",
+            article_id=result.article_id,
+            input_tokens=extraction.usage.input_tokens,
+            output_tokens=extraction.usage.output_tokens,
+            cache_read_input_tokens=extraction.usage.cache_read_input_tokens,
+            cache_creation_input_tokens=extraction.usage.cache_creation_input_tokens,
+        )
         draft_id = drafts_mod.insert_draft(conn, article_id=result.article_id, extraction=extraction)
         t.extracted += 1
         if extraction.payload.get("is_partnership"):
@@ -232,14 +353,98 @@ def _ingest_one(conn: sqlite3.Connection, source, args: argparse.Namespace) -> _
             f"cache_write={extraction.usage.cache_creation_input_tokens}"
         )
 
+        # Multi-signal pass — route the article and run typed extractors for
+        # any non-partnership signals. Partnership is already handled above
+        # via the existing extract.* path; we just record it in
+        # article_signal so the inventory is uniform.
+        if extraction.payload.get("is_partnership"):
+            signals.record_signal(conn, result.article_id, "partnership")
+            conn.commit()
+        try:
+            router = signals.route(cleaned, title=title)
+            extract.log_usage(
+                conn,
+                model=router.model, kind="signal_router",
+                article_id=result.article_id,
+                input_tokens=router.input_tokens,
+                output_tokens=router.output_tokens,
+                cache_read_input_tokens=router.cache_read_input_tokens,
+                cache_creation_input_tokens=router.cache_creation_input_tokens,
+            )
+            for kind in router.signals:
+                if kind == "partnership" or signals.has_signal(conn, result.article_id, kind):
+                    continue
+                _run_signal_extraction(
+                    conn=conn,
+                    article_id=result.article_id,
+                    cleaned=cleaned, title=title, url=url,
+                    kind=kind, totals=t,
+                )
+        except Exception as e:
+            print(f"       signal-router failed: {type(e).__name__}: {e}")
+
     print()
     print(
         f"[ingest] {source.name}: candidates={t.candidates} "
         f"skipped_prefilter={t.skipped_prefilter} fetched={t.fetched} "
-        f"extracted={t.extracted} positives={t.new_positives} failed={t.failed}"
+        f"extracted={t.extracted} positives={t.new_positives} "
+        f"contracts={t.contracts} leadership={t.leadership_changes} "
+        f"country_tags={t.countries_tagged} failed={t.failed}"
     )
     print(f"[ingest] {source.name}: cache_read={t.cache_reads} cache_write={t.cache_writes}")
     return t
+
+
+def _run_signal_extraction(
+    *,
+    conn,
+    article_id: int,
+    cleaned: str,
+    title: str | None,
+    url: str | None,
+    kind: str,
+    totals: _SourceTotals,
+) -> None:
+    """Run the typed extractor for one signal kind. Logs usage + updates totals."""
+    try:
+        if kind == "contract":
+            res = signals.extract_contract(cleaned, title=title, url=url)
+            draft_id = signals.persist_contract(conn, article_id, res)
+            totals.contracts += 1
+            payload = res.payload
+            print(
+                f"       -> contract #{draft_id}  "
+                f"{payload.get('contractor')} <- {payload.get('customer')}  "
+                f"value={payload.get('value_musd')}M  conf={payload.get('confidence')}"
+            )
+        elif kind == "leadership_change":
+            res = signals.extract_leadership_change(cleaned, title=title, url=url)
+            draft_id = signals.persist_leadership(conn, article_id, res)
+            if draft_id == 0:
+                print(f"       -> leadership_change skipped (no person_name)")
+                return
+            totals.leadership_changes += 1
+            payload = res.payload
+            print(
+                f"       -> leadership #{draft_id}  "
+                f"{payload.get('person_name')} -> {payload.get('new_role')} "
+                f"@ {payload.get('organization')}  conf={payload.get('confidence')}"
+            )
+        else:
+            return
+        totals.cache_reads += res.cache_read_input_tokens
+        totals.cache_writes += res.cache_creation_input_tokens
+        extract.log_usage(
+            conn,
+            model=res.model, kind=f"signal_{kind}",
+            article_id=article_id,
+            input_tokens=res.input_tokens,
+            output_tokens=res.output_tokens,
+            cache_read_input_tokens=res.cache_read_input_tokens,
+            cache_creation_input_tokens=res.cache_creation_input_tokens,
+        )
+    except Exception as e:
+        print(f"       {kind} extract failed: {type(e).__name__}: {e}")
 
 
 def _print_cross_source_summary(totals: _RunTotals) -> None:
@@ -250,25 +455,28 @@ def _print_cross_source_summary(totals: _RunTotals) -> None:
     print("=" * 80)
     print(
         f"  {'source':<18} {'cand':>5} {'skip':>5} {'fetch':>6} {'extr':>5} "
-        f"{'pos':>4} {'fail':>5}"
+        f"{'pos':>4} {'tags':>5} {'fail':>5}"
     )
     for name, t in totals.by_source.items():
         print(
             f"  {name:<18} {t.candidates:>5} {t.skipped_prefilter:>5} "
-            f"{t.fetched:>6} {t.extracted:>5} {t.new_positives:>4} {t.failed:>5}"
+            f"{t.fetched:>6} {t.extracted:>5} {t.new_positives:>4} "
+            f"{t.countries_tagged:>5} {t.failed:>5}"
         )
         grand.candidates += t.candidates
         grand.skipped_prefilter += t.skipped_prefilter
         grand.fetched += t.fetched
         grand.extracted += t.extracted
         grand.new_positives += t.new_positives
+        grand.countries_tagged += t.countries_tagged
         grand.failed += t.failed
         grand.cache_reads += t.cache_reads
         grand.cache_writes += t.cache_writes
-    print("  " + "-" * 56)
+    print("  " + "-" * 62)
     print(
         f"  {'TOTAL':<18} {grand.candidates:>5} {grand.skipped_prefilter:>5} "
-        f"{grand.fetched:>6} {grand.extracted:>5} {grand.new_positives:>4} {grand.failed:>5}"
+        f"{grand.fetched:>6} {grand.extracted:>5} {grand.new_positives:>4} "
+        f"{grand.countries_tagged:>5} {grand.failed:>5}"
     )
     print(
         f"\n  cache_read_total={grand.cache_reads:,} "
@@ -324,4 +532,241 @@ def _cmd_review_reject(args: argparse.Namespace) -> int:
         db.ensure_pipeline_schema(conn)
         drafts_mod.reject(conn, args.draft_id, reviewer=args.reviewer, reason=args.reason)
     print(f"rejected #{args.draft_id}")
+    return 0
+
+
+def _cmd_review_skipped(args: argparse.Namespace) -> int:
+    sql = (
+        "SELECT id, source, title, fetched_at, failure_reason "
+        "FROM news_article WHERE status = 'skipped_prefilter'"
+    )
+    params: list = []
+    if args.source:
+        sql += " AND source = ?"
+        params.append(args.source)
+    if args.since:
+        sql += " AND fetched_at >= ?"
+        params.append(args.since)
+    sql += " ORDER BY fetched_at DESC LIMIT ?"
+    params.append(args.limit)
+    with db.connect(db.resolve_db(args.db)) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(sql, params).fetchall()
+    if not rows:
+        print("(no prefilter-skipped articles match)")
+        return 0
+    print(f"{len(rows)} skipped article(s):\n")
+    for aid, src, title, fetched, reason in rows:
+        title_clean = (title or "(no title)")[:80]
+        reason_clean = (reason or "")[:60]
+        print(f"  #{aid:>5}  {src:<18}  {fetched[:10]}  {title_clean}")
+        if reason_clean:
+            print(f"          reason: {reason_clean}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Country-tag backfill
+# ---------------------------------------------------------------------------
+
+
+def _cmd_tag_countries(args: argparse.Namespace) -> int:
+    load_dotenv()
+    sql = (
+        "SELECT a.id, a.title, a.cleaned_text, a.source "
+        "FROM news_article a "
+        "WHERE a.cleaned_text IS NOT NULL "
+        "  AND a.status IN ('fetched', 'extracted')"
+    )
+    params: list = []
+    if args.source:
+        sql += " AND a.source = ?"
+        params.append(args.source)
+    if not args.retag:
+        sql += " AND NOT EXISTS (SELECT 1 FROM news_article_country t WHERE t.article_id = a.id)"
+    sql += " ORDER BY a.id ASC LIMIT ?"
+    params.append(args.limit)
+
+    n_done = 0
+    n_failed = 0
+    n_tags = 0
+    with db.connect(db.resolve_db(args.db)) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(sql, params).fetchall()
+        if not rows:
+            print("(no articles need tagging in this scope)")
+            return 0
+        print(f"[tag] {len(rows)} article(s) to tag")
+        for aid, title, cleaned, src in rows:
+            try:
+                result = country_tag_mod.tag(cleaned, title=title)
+                added = country_tag_mod.persist(conn, aid, result)
+                extract.log_usage(
+                    conn,
+                    model=result.model,
+                    kind="country_tag",
+                    article_id=aid,
+                    input_tokens=result.input_tokens,
+                    output_tokens=result.output_tokens,
+                    cache_read_input_tokens=result.cache_read_input_tokens,
+                    cache_creation_input_tokens=result.cache_creation_input_tokens,
+                )
+                n_done += 1
+                n_tags += added
+                summary = ", ".join(c for c, _ in result.countries) or "(none)"
+                print(f"  #{aid:>5} [{src}] -> {summary}")
+            except Exception as e:
+                n_failed += 1
+                print(f"  #{aid:>5} [{src}] FAILED: {type(e).__name__}: {e}")
+    print(f"\n[tag] done: tagged={n_done} failed={n_failed} total_country_rows={n_tags}")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Re-extract
+# ---------------------------------------------------------------------------
+
+
+def _cmd_reextract(args: argparse.Namespace) -> int:
+    load_dotenv()
+    wipe_drafts = args.what in ("drafts", "both")
+    wipe_tags = args.what in ("tags", "both")
+
+    where = ["a.cleaned_text IS NOT NULL"]
+    params: list = []
+    if args.source:
+        where.append("a.source = ?")
+        params.append(args.source)
+    if args.since:
+        where.append("a.fetched_at >= ?")
+        params.append(args.since)
+    where_clause = " AND ".join(where)
+
+    with db.connect(db.resolve_db(args.db)) as conn:
+        db.ensure_pipeline_schema(conn)
+        sel_sql = (
+            f"SELECT a.id, a.title, a.cleaned_text, a.url, a.source "
+            f"FROM news_article a WHERE {where_clause} "
+            f"ORDER BY a.id ASC LIMIT ?"
+        )
+        rows = conn.execute(sel_sql, params + [args.limit]).fetchall()
+        if not rows:
+            print("(no articles in scope)")
+            return 0
+
+        article_ids = [r[0] for r in rows]
+        print(f"[reextract] {len(article_ids)} article(s) in scope (limit={args.limit})")
+        if args.dry_run:
+            print(f"  would wipe: drafts={wipe_drafts} tags={wipe_tags}")
+            return 0
+
+        if wipe_drafts:
+            placeholders = ",".join("?" * len(article_ids))
+            conn.execute(
+                f"DELETE FROM partnership_draft WHERE source_article_id IN ({placeholders})",
+                article_ids,
+            )
+            conn.execute(
+                f"UPDATE news_article SET status='fetched' "
+                f"WHERE id IN ({placeholders}) AND status = 'extracted'",
+                article_ids,
+            )
+            conn.commit()
+            print(f"[reextract] wiped drafts for {len(article_ids)} article(s)")
+
+        if wipe_tags:
+            placeholders = ",".join("?" * len(article_ids))
+            conn.execute(
+                f"DELETE FROM news_article_country WHERE article_id IN ({placeholders})",
+                article_ids,
+            )
+            conn.commit()
+            print(f"[reextract] wiped country tags for {len(article_ids)} article(s)")
+
+        n_extracted = 0
+        n_tagged = 0
+        n_failed = 0
+        for aid, title, cleaned, url, src in rows:
+            if wipe_drafts:
+                try:
+                    extraction = extract.extract_with_escalation(cleaned, title=title, url=url)
+                    extract.log_usage(
+                        conn,
+                        model=extraction.model,
+                        kind="extract",
+                        article_id=aid,
+                        input_tokens=extraction.usage.input_tokens,
+                        output_tokens=extraction.usage.output_tokens,
+                        cache_read_input_tokens=extraction.usage.cache_read_input_tokens,
+                        cache_creation_input_tokens=extraction.usage.cache_creation_input_tokens,
+                    )
+                    drafts_mod.insert_draft(conn, article_id=aid, extraction=extraction)
+                    n_extracted += 1
+                    print(
+                        f"  #{aid:>5} [{src}] extract: "
+                        f"is_partnership={extraction.payload.get('is_partnership')} "
+                        f"({extraction.payload.get('country_1')} <-> {extraction.payload.get('country_2')})"
+                    )
+                except Exception as e:
+                    n_failed += 1
+                    print(f"  #{aid:>5} [{src}] extract FAILED: {type(e).__name__}: {e}")
+            if wipe_tags:
+                try:
+                    result = country_tag_mod.tag(cleaned, title=title)
+                    added = country_tag_mod.persist(conn, aid, result)
+                    extract.log_usage(
+                        conn,
+                        model=result.model,
+                        kind="country_tag",
+                        article_id=aid,
+                        input_tokens=result.input_tokens,
+                        output_tokens=result.output_tokens,
+                        cache_read_input_tokens=result.cache_read_input_tokens,
+                        cache_creation_input_tokens=result.cache_creation_input_tokens,
+                    )
+                    n_tagged += added
+                    summary = ", ".join(c for c, _ in result.countries) or "(none)"
+                    print(f"  #{aid:>5} [{src}] tag: {summary}")
+                except Exception as e:
+                    n_failed += 1
+                    print(f"  #{aid:>5} [{src}] tag FAILED: {type(e).__name__}: {e}")
+
+        print(
+            f"\n[reextract] done: extracted={n_extracted} tagged_rows={n_tagged} "
+            f"failed={n_failed}"
+        )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Cost reporting
+# ---------------------------------------------------------------------------
+
+
+def _cmd_cost(args: argparse.Namespace) -> int:
+    sql = (
+        "SELECT model, kind, "
+        "  COUNT(*), "
+        "  SUM(input_tokens), SUM(output_tokens), "
+        "  SUM(cache_read_input_tokens), SUM(cache_creation_input_tokens) "
+        "FROM extraction_usage"
+    )
+    params: list = []
+    if args.since:
+        sql += " WHERE recorded_at >= ?"
+        params.append(args.since)
+    sql += " GROUP BY model, kind ORDER BY model, kind"
+    with db.connect(db.resolve_db(args.db)) as conn:
+        db.ensure_pipeline_schema(conn)
+        rows = conn.execute(sql, params).fetchall()
+    if not rows:
+        print("(no usage rows recorded yet)")
+        return 0
+    print(f"{'model':<24} {'kind':<14} {'calls':>8} {'in':>10} {'out':>8} {'cache_r':>10} {'cache_w':>10}")
+    print("-" * 90)
+    for model, kind, calls, ti, to, cr, cw in rows:
+        print(
+            f"{model:<24} {kind:<14} {calls:>8,} {ti or 0:>10,} {to or 0:>8,} "
+            f"{cr or 0:>10,} {cw or 0:>10,}"
+        )
     return 0

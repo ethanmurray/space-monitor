@@ -6,7 +6,7 @@ reject. Also performs a lightweight duplicate check at promotion time.
 from __future__ import annotations
 
 import json
-import secrets
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -44,9 +44,17 @@ def insert_draft(
     article_id: int,
     extraction: ExtractionResult,
 ) -> int:
-    """Insert the extracted payload as a pending partnership_draft row."""
-    payload = extraction.payload
+    """Insert the extracted payload as a pending partnership_draft row.
+
+    Country fields are validated against the canonical ``country`` table —
+    any out-of-vocabulary value (the model occasionally emits things like
+    'Multilateral' or a city name) is moved into ``review_notes`` and the
+    underlying field is set to NULL so downstream joins stay clean.
+    """
+    payload = dict(extraction.payload)  # shallow copy so we can rewrite values
     now = datetime.now(timezone.utc).isoformat()
+
+    notes_lines = _normalize_countries(conn, payload)
 
     # Look up an existing partnership that might be the same one — match on
     # (country_1, country_2, partnership_year). A loose check; the analyst
@@ -59,6 +67,7 @@ def insert_draft(
         "extracted_at",
         "extractor_model",
         "confidence",
+        "review_notes",
         "possible_duplicate_of",
     ] + list(_DRAFT_PARTNERSHIP_COLUMNS)
     placeholders = ", ".join(["?"] * len(cols))
@@ -69,6 +78,7 @@ def insert_draft(
         now,
         extraction.model,
         payload.get("confidence"),
+        ("\n".join(notes_lines) if notes_lines else None),
         duplicate_of,
     ]
     for col in _DRAFT_PARTNERSHIP_COLUMNS:
@@ -83,6 +93,39 @@ def insert_draft(
     )
     conn.commit()
     return cur.lastrowid
+
+
+_VALID_COUNTRIES_CACHE: set[str] | None = None
+
+
+def _valid_countries(conn: sqlite3.Connection) -> set[str]:
+    """Cached set of canonical country names. Falls back to the bundled
+    taxonomy if the country table is empty (fresh DB without bootstrap)."""
+    global _VALID_COUNTRIES_CACHE
+    if _VALID_COUNTRIES_CACHE is not None:
+        return _VALID_COUNTRIES_CACHE
+    rows = conn.execute("SELECT name FROM country").fetchall()
+    if rows:
+        _VALID_COUNTRIES_CACHE = {r[0] for r in rows}
+    else:
+        from .. import taxonomy
+
+        _VALID_COUNTRIES_CACHE = {c.name for c in taxonomy.load().countries}
+    return _VALID_COUNTRIES_CACHE
+
+
+def _normalize_countries(conn: sqlite3.Connection, payload: dict[str, Any]) -> list[str]:
+    """Mutate payload in place: any country_* value not in the canonical list
+    is nulled and a note is appended to the returned list (for review_notes).
+    """
+    valid = _valid_countries(conn)
+    notes: list[str] = []
+    for field in ("country_1", "country_2"):
+        v = payload.get(field)
+        if v and v not in valid:
+            notes.append(f"non-canonical {field}={v!r} dropped — verify against article")
+            payload[field] = None
+    return notes
 
 
 def _find_possible_duplicate(conn: sqlite3.Connection, payload: dict[str, Any]) -> str | None:
@@ -184,7 +227,7 @@ def approve(
                 raise ValueError(f"cannot edit {k!r} via approval — not a partnership field")
             d[k] = v
 
-    pid = _generate_partnership_id(d)
+    pid = _generate_partnership_id(conn, d)
 
     conn.execute(
         """
@@ -241,16 +284,48 @@ def reject(
 # ---------------------------------------------------------------------------
 
 
-def _generate_partnership_id(d: dict[str, Any]) -> str:
-    """Produce a partnership_id roughly matching the workbook's convention:
-    `<Org/Country 1>-<Org/Country 2> <Type> <Year>` plus a 4-char nonce to
-    guarantee uniqueness."""
-    p1 = d.get("organization_1") or d.get("company_1") or d.get("country_1") or "Party1"
-    p2 = d.get("organization_2") or d.get("company_2") or d.get("country_2") or "Party2"
-    typ = d.get("partnership_type") or "Partnership"
-    year = d.get("partnership_year") or ""
-    nonce = secrets.token_hex(2)
-    return f"{p1}-{p2} {typ} {year} [{nonce}]".strip()
+_SLUG_RE = re.compile(r"[^A-Za-z0-9]+")
+
+
+def _slug(value: str | None, fallback: str) -> str:
+    if not value:
+        return fallback
+    cleaned = _SLUG_RE.sub("", value)
+    return cleaned[:24] or fallback
+
+
+def _generate_partnership_id(conn: sqlite3.Connection, d: dict[str, Any]) -> str:
+    """Produce a deterministic, human-readable partnership_id.
+
+    Format: ``<Slug1>-<Slug2>_<TypeSlug>_<Year>[_<n>]``. The optional ``_<n>``
+    suffix is added only when the deterministic prefix collides with an
+    existing row — keeps the identifier readable while still guaranteeing
+    uniqueness across re-runs.
+    """
+    p1 = d.get("organization_1") or d.get("company_1") or d.get("country_1")
+    p2 = d.get("organization_2") or d.get("company_2") or d.get("country_2")
+    s1 = _slug(p1, "Party1")
+    s2 = _slug(p2, "Party2")
+    typ = _slug(d.get("partnership_type"), "Partnership")
+    year = str(d.get("partnership_year") or "")
+    base = f"{s1}-{s2}_{typ}"
+    if year:
+        base = f"{base}_{year}"
+
+    # Probe for collisions deterministically. Almost always returns base on
+    # the first try; the `_n` suffix only kicks in when the same deterministic
+    # ID has already been inserted (e.g., re-extraction of the same article).
+    for suffix in ("",) + tuple(f"_{n}" for n in range(2, 100)):
+        candidate = base + suffix
+        row = conn.execute(
+            "SELECT 1 FROM partnership WHERE partnership_id = ? LIMIT 1",
+            (candidate,),
+        ).fetchone()
+        if not row:
+            return candidate
+    # 100 collisions on the same ID is implausible — fall back to a long suffix.
+    import secrets
+    return f"{base}_{secrets.token_hex(3)}"
 
 
 def _article_url(conn: sqlite3.Connection, article_id: int) -> str | None:

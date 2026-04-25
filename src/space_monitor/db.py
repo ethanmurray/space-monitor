@@ -488,6 +488,95 @@ PIPELINE_TABLES: list[tuple[str, str]] = [
         """,
     ),
     (
+        "extraction_usage",
+        """
+        CREATE TABLE extraction_usage (
+            id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+            recorded_at                 TEXT NOT NULL,
+            model                       TEXT NOT NULL,
+            kind                        TEXT NOT NULL,    -- extract | country_tag | prefilter | translate
+            article_id                  INTEGER,          -- nullable: prefilter is per-batch, not per-article
+            input_tokens                INTEGER NOT NULL,
+            output_tokens               INTEGER NOT NULL,
+            cache_read_input_tokens     INTEGER NOT NULL DEFAULT 0,
+            cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0
+        )
+        """,
+    ),
+    (
+        "news_article_country",
+        """
+        CREATE TABLE news_article_country (
+            article_id   INTEGER NOT NULL REFERENCES news_article(id),
+            country      TEXT NOT NULL,
+            centrality   TEXT NOT NULL,        -- 'central' | 'mentioned'
+            tagged_at    TEXT NOT NULL,
+            tagger_model TEXT NOT NULL,
+            PRIMARY KEY (article_id, country)
+        )
+        """,
+    ),
+    (
+        "contract_draft",
+        """
+        CREATE TABLE contract_draft (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_article_id   INTEGER NOT NULL REFERENCES news_article(id),
+            draft_status        TEXT NOT NULL,        -- pending | approved | rejected
+            extracted_at        TEXT NOT NULL,
+            extractor_model     TEXT NOT NULL,
+            confidence          TEXT,                 -- high | medium | low
+            reviewer            TEXT,
+            review_notes        TEXT,
+            -- Signal payload:
+            description         TEXT,
+            contract_year       INTEGER,
+            value_musd          REAL,                 -- nullable; many announcements omit value
+            customer            TEXT,                 -- buying agency / org
+            customer_country    TEXT,
+            contractor          TEXT,                 -- winning company / consortium
+            contractor_country  TEXT,
+            primary_mission     TEXT,
+            mission_type        TEXT
+        )
+        """,
+    ),
+    (
+        "leadership_change_draft",
+        """
+        CREATE TABLE leadership_change_draft (
+            id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+            source_article_id   INTEGER NOT NULL REFERENCES news_article(id),
+            draft_status        TEXT NOT NULL,
+            extracted_at        TEXT NOT NULL,
+            extractor_model     TEXT NOT NULL,
+            confidence          TEXT,
+            reviewer            TEXT,
+            review_notes        TEXT,
+            -- Signal payload:
+            description         TEXT,
+            change_year         INTEGER,
+            person_name         TEXT NOT NULL,
+            organization        TEXT,
+            country             TEXT,
+            new_role            TEXT,
+            prior_role          TEXT,
+            change_kind         TEXT                  -- appointment | departure | promotion | resignation | other
+        )
+        """,
+    ),
+    (
+        "article_signal",
+        """
+        CREATE TABLE article_signal (
+            article_id   INTEGER NOT NULL REFERENCES news_article(id),
+            signal_kind  TEXT NOT NULL,           -- partnership | contract | leadership_change
+            tagged_at    TEXT NOT NULL,
+            PRIMARY KEY (article_id, signal_kind)
+        )
+        """,
+    ),
+    (
         "partnership_draft",
         """
         CREATE TABLE partnership_draft (

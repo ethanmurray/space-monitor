@@ -325,6 +325,26 @@ def render_article_review() -> None:
         f"{article.source}  ·  published {(article.published_at or '')[:10]}"
     )
 
+    # Country tags + non-partnership signal drafts both come from the
+    # multi-signal pipeline that runs after each fetch. Surfacing them up
+    # top so the analyst sees "what kinds of structured data did we pull
+    # from this article" before diving into any one form.
+    if article.countries:
+        chips = " ".join(
+            f"`{c}{'★' if cn == 'central' else ''}`"
+            for c, cn in article.countries
+        )
+        st.markdown(f"**Countries:** {chips}")
+    badges = []
+    if article.draft:
+        badges.append("partnership")
+    if article.contracts:
+        badges.append(f"contract×{len(article.contracts)}")
+    if article.leadership_changes:
+        badges.append(f"leadership×{len(article.leadership_changes)}")
+    if badges:
+        st.caption("Signals extracted: " + " · ".join(badges))
+
     body_col, draft_col = st.columns([3, 2])
 
     # -------- LEFT: article body + translate ---------
@@ -352,10 +372,39 @@ def render_article_review() -> None:
 
     # -------- RIGHT: editable draft + actions ---------
     with draft_col:
-        st.subheader("Extracted draft")
+        # Other signal drafts (contracts, leadership changes) sit above the
+        # partnership form — they're read-only for now (Phase 2 v3 will add
+        # editable forms once the partnership flow proves out).
+        if article.contracts:
+            with st.expander(f"Contract drafts ({len(article.contracts)})", expanded=False):
+                for c in article.contracts:
+                    st.markdown(
+                        f"**{c.get('contractor') or '?'}** ← "
+                        f"_{c.get('customer') or '?'}_  ·  "
+                        f"value `{c.get('value_musd')}`M USD  ·  "
+                        f"year `{c.get('contract_year')}`  ·  "
+                        f"conf `{c.get('confidence')}`"
+                    )
+                    if c.get("description"):
+                        st.caption(c["description"])
+        if article.leadership_changes:
+            with st.expander(
+                f"Leadership-change drafts ({len(article.leadership_changes)})",
+                expanded=False,
+            ):
+                for c in article.leadership_changes:
+                    st.markdown(
+                        f"**{c.get('person_name')}** → _{c.get('new_role') or '?'}_ "
+                        f"@ {c.get('organization') or '?'}  "
+                        f"({c.get('change_kind') or '—'}, year `{c.get('change_year')}`)"
+                    )
+                    if c.get("description"):
+                        st.caption(c["description"])
+
+        st.subheader("Partnership draft")
         d = article.draft
         if not d:
-            st.info("No draft for this article yet.")
+            st.info("No partnership draft for this article.")
             return
 
         st.caption(

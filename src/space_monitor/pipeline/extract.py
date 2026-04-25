@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import json
 import os
+import sqlite3
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 import anthropic
@@ -329,13 +331,81 @@ def extract(
     )
 
 
+def log_usage(
+    conn: sqlite3.Connection,
+    *,
+    model: str,
+    kind: str,
+    input_tokens: int,
+    output_tokens: int,
+    cache_read_input_tokens: int = 0,
+    cache_creation_input_tokens: int = 0,
+    article_id: int | None = None,
+) -> None:
+    """Append a row to ``extraction_usage`` for the cost CLI to aggregate.
+
+    Caller-side helper rather than something baked into :func:`extract` so
+    other LLM steps (country_tag, prefilter, translate) can use the same
+    audit table without depending on extract's signature.
+    """
+    conn.execute(
+        "INSERT INTO extraction_usage "
+        "(recorded_at, model, kind, article_id, "
+        " input_tokens, output_tokens, "
+        " cache_read_input_tokens, cache_creation_input_tokens) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            datetime.now(timezone.utc).isoformat(),
+            model,
+            kind,
+            article_id,
+            input_tokens,
+            output_tokens,
+            cache_read_input_tokens,
+            cache_creation_input_tokens,
+        ),
+    )
+    conn.commit()
+
+
+_LONG_ARTICLE_INPUT_TOKENS = 3000
+
+
+def _should_escalate(result: ExtractionResult) -> str | None:
+    """Decide whether to escalate to Sonnet. Returns a reason string or None.
+
+    Three triggers, in priority order:
+
+    1. Haiku reported low confidence — the original signal.
+    2. Long article (>3,000 input tokens) — Haiku tends to drop fields on
+       very long bodies; Sonnet handles them more reliably and the marginal
+       cost is small once the cache prefix is paid.
+    3. ``is_partnership=true`` but both country_1 and country_2 are null —
+       observed pattern of sloppy extraction where Haiku flags a partnership
+       without identifying either party.
+    """
+    payload = result.payload
+    if payload.get("confidence") == "low":
+        return "low_confidence"
+    if result.usage.input_tokens > _LONG_ARTICLE_INPUT_TOKENS:
+        return "long_article"
+    if (
+        payload.get("is_partnership")
+        and payload.get("country_1") is None
+        and payload.get("country_2") is None
+    ):
+        return "partnership_no_countries"
+    return None
+
+
 def extract_with_escalation(
     article_text: str,
     *,
     title: str | None = None,
     url: str | None = None,
 ) -> ExtractionResult:
-    """Try Haiku first; if it returns ``confidence == 'low'``, retry on Sonnet.
+    """Try Haiku first; escalate to Sonnet on low confidence, long articles,
+    or partnership-flagged drafts that are missing both country fields.
 
     Sonnet's cache is independent (different model id), so the first
     escalation pays a one-time cache write — subsequent escalations within the
@@ -344,10 +414,11 @@ def extract_with_escalation(
     ``escalated_from`` carries the original model id.
     """
     first = extract(article_text, title=title, url=url, model=DEFAULT_MODEL)
-    if first.payload.get("confidence") != "low":
+    reason = _should_escalate(first)
+    if reason is None:
         return first
     second = extract(article_text, title=title, url=url, model=ESCALATION_MODEL)
-    second.escalated_from = first.model
+    second.escalated_from = f"{first.model} ({reason})"
     return second
 
 

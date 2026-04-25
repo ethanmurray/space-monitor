@@ -22,49 +22,9 @@ section near the end of this file for the planning thread.
 
 ## P0 — foundations for the briefing data layer
 
-- [ ] **Country-tagging layer for every fetched article.** Add a
-      `news_article_country` table: `(article_id, country, centrality)` where
-      centrality is `central` (article subject) or `mentioned`. After every
-      fetch — partnership or not — one cheap Haiku call returns the country
-      list. Unlocks "show me everything about Vietnam in the last 90 days"
-      without changing the extraction layer. Foundational for any per-country
-      briefing query. ~1 day of work; <$0.001/article.
-
-- [ ] **Multi-signal extractor** (replaces the binary partnership/not flow).
-      Today every article either becomes a `partnership_draft` or is
-      discarded — losing contracts, leadership moves, program milestones,
-      strategy publications, budget announcements that are right there in
-      the same articles we already paid to fetch. Replace with a router that
-      tags each article as one or more of:
-      `partnership`, `contract`, `program_milestone`, `launch`,
-      `leadership_change`, `strategy_publication`, `budget_announcement`.
-      Each gets its own small schema and draft table. Same review CLI shape.
-      Start with just `partnership + contract + leadership_change` (richest
-      three for the briefing use case) and add the rest as they prove
-      worthwhile. **This is where the system gets 5-10x more useful per
-      ingested article.**
-
-- [ ] **Geocoding service** *(roadmap step 2)*. Replace the 42,905-row
-      `LatLong Auto-Tagging` sheet with either (a) a queryable SQLite
-      gazetteer behind a `geocode(city, country) -> (lat, lng)` function in
-      `space_monitor/geocode.py`, or (b) a thin wrapper around Mapbox or
-      Nominatim. Lets industry_company / launch_site / partnership-party
-      records get coordinates at write time without copying the whole
-      gazetteer around.
-
-- [ ] **Reset / re-extract CLI.** When the prompt or schema changes, you need
-      a clean way to wipe drafts and re-run extraction over already-fetched
-      articles. Currently I reset by hand with raw SQL. Becomes critical when
-      multi-signal extraction lands — you'll want to re-process the whole
-      `news_article` history through the new extractor.
+P0 cleared in this pass — see DONE for details.
 
 ## P1 — quality + cost wins
-
-- [ ] **`space-monitor review skipped` CLI.** Pair to the prefilter — list
-      and inspect articles auto-skipped by the title classifier so the
-      analyst can spot-check for misses. Should support `--source X` and
-      `--since 7d` filters and show the model's stated reason alongside each
-      title. Cheap to build (~30 lines).
 
 - [ ] **5% false-negative resample of prefilter skips.** Periodic job that
       picks a random 5% sample of `news_article` rows with
@@ -81,33 +41,26 @@ section near the end of this file for the planning thread.
       The connector pattern (scheduled pull + diff + upsert + audit log) is
       reusable across all the remaining sources.
 
-- [ ] **Better partnership_id generation.** Currently uses a 4-char random
-      nonce in `_generate_partnership_id` — fine for uniqueness, but the
-      workbook's existing IDs are human-readable and stable. Consider
-      `slug(party1)-slug(party2) <Type> <Year>` with a deterministic dedup
-      check before insert.
+- [ ] **Backfill country tags on historical articles.** The country tagger
+      runs as part of every fresh ingest, but ~80 articles ingested before
+      it landed don't have tags. One-time `space-monitor tag-countries`
+      run (with no `--limit`) covers it; cost is one Haiku call per
+      article (~$0.0005 each).
 
-- [ ] **Country field normalization.** `country_1` / `country_2` on the
-      extract schema are `nullable_str`, not enum. The model occasionally
-      emits values that aren't in the canonical country list — observed
-      `"Multilateral"` on the SKAO SKA-Mid draft (a 16-country observatory
-      project). Two ways to fix: (a) tighten the schema to enum-from-taxonomy
-      (risk: schema gets large with ~200 countries × 2 columns + may push
-      against the 16-nullable-fields cap), or (b) post-process at draft
-      insert: validate country values against `country` table, write
-      offending values into `review_notes` and null the field. Option (b) is
-      probably cleaner.
+- [ ] **Editable forms for non-partnership signals.** The Streamlit
+      `Article review` page now surfaces contract and leadership_change
+      drafts (read-only expanders + country-tag chips at the top of the
+      article view). Still pending: editable forms with Save / Approve /
+      Reject buttons for these other kinds, plus their own promote-to-live
+      target tables (no `contract` / `leadership_change` analogues to the
+      `partnership` table yet).
 
-- [ ] **Cost reporting CLI.** `space-monitor cost --since YYYY-MM-DD` that
-      sums input/output/cache tokens per model from a `extraction_usage`
-      audit table (not yet created — currently usage is logged to stdout
-      only). Useful when scaling up.
-
-- [ ] **Sonnet escalation widen.** Today escalation triggers only on
-      `confidence == "low"`. Also escalate when the article is long
-      (>3,000 tokens), or when Haiku says is_partnership=true but leaves
-      both `country_1` and `country_2` null — that pattern correlates with
-      sloppy extraction.
+- [ ] **More signal kinds.** Router currently emits
+      partnership/contract/leadership_change. Next-best additions:
+      `program_milestone` (launches, IOC, FOC), `budget_announcement`
+      (line-items in national appropriations), `strategy_publication`
+      (national space policy releases). Each is a small typed schema +
+      router enum entry.
 
 ## P2 — broader source coverage
 
@@ -275,6 +228,77 @@ pre-Jan-2026 announcements from high-volume feeds.
 ---
 
 ## DONE — for context
+
+- **Country-tagging layer (P0 #1).** New `news_article_country` table
+  `(article_id, country, centrality, tagged_at, tagger_model)`. Module
+  `pipeline/country_tag.py` runs one cheap Haiku call per article that
+  returns a structured list of `(country, central|mentioned)` pairs,
+  schema-enforced against the canonical country list. Wired into
+  `_ingest_one` after every successful fetch (independent of the
+  extraction cap, so even articles we don't extract still get tagged).
+  `space-monitor tag-countries` backfills already-fetched articles. Usage
+  is logged to `extraction_usage` for the cost CLI.
+
+- **Multi-signal extractor (P0 #2).** `pipeline/signals.py` adds:
+  - `route()` — one Haiku call returning the set of signals present
+    (`partnership`, `contract`, `leadership_change`).
+  - `extract_contract()` / `extract_leadership_change()` — typed Haiku
+    calls with their own JSON Schemas; Sonnet escalation when Haiku
+    returns confidence='low'.
+  - `persist_contract()` / `persist_leadership()` — write to
+    `contract_draft` / `leadership_change_draft`; record the signal in
+    `article_signal` so the inventory of "what kinds of signals does this
+    article carry" is one query away.
+  Wired into ingest after the partnership extractor — partnership is
+  recorded in `article_signal` for uniformity, and the router's other
+  signals each trigger their own extractor call. Per-source and cross-
+  source ingest summaries now report `contracts=` and `leadership=`.
+
+- **Geocoding service (P0 #3).** `space_monitor/geocode.py` exposes
+  `geocode(city, country) -> GeoHit | None` (and `geocode_many()` for
+  batch use). Backed by the bundled `city` gazetteer table. Lookup is
+  case-insensitive on both `city` and `city_ascii`, prefers the most-
+  populous match within the named country, then falls back to the most-
+  populous match globally. External-fallback (Mapbox / Nominatim) can
+  plug into `_lookup` later without changing call sites.
+
+- **Reset / re-extract CLI (P0 #4).** `space-monitor reextract
+  [--source X] [--since DATE] [--what drafts|tags|both] [--limit N]
+  [--dry-run]`. Wipes drafts and/or country tags for in-scope
+  `news_article` rows and re-runs the matching extractors. Surfaces the
+  scope before destructive work via `--dry-run`. Ideal after prompt or
+  schema changes.
+
+- **`review skipped` CLI (P1).** `space-monitor review skipped
+  [--source X] [--since DATE] [--limit N]` lists prefilter-rejected
+  articles with the classifier's stated reason — analyst can spot-check
+  for misses without writing SQL.
+
+- **Country normalization at draft insert (P1).** `pipeline/drafts.py`
+  validates `country_1`/`country_2` against the `country` table at
+  `insert_draft` time. Non-canonical values (observed: `"Multilateral"`
+  on the SKAO SKA-Mid draft) are nulled and a note is appended to
+  `review_notes`. Cached set; falls back to the bundled taxonomy when
+  the table is empty.
+
+- **Sonnet escalation widened (P1).** `extract_with_escalation` now
+  escalates on three triggers: low confidence (original), long article
+  (>3,000 input tokens), and `is_partnership=true` with both country
+  fields null. The trigger reason is recorded in `escalated_from` for
+  later analysis.
+
+- **Cost reporting CLI (P1).** New `extraction_usage` audit table
+  `(recorded_at, model, kind, article_id, input_tokens, output_tokens,
+  cache_read, cache_write)`. Every LLM call (extract, country_tag,
+  signal_router, signal_*) writes a row. `space-monitor cost
+  [--since DATE]` aggregates by `(model, kind)` and prints per-axis
+  totals. Easy to roll up into a dollar figure offline.
+
+- **Better partnership_id generation (P1).** Replaced the
+  `secrets.token_hex(2)` random nonce with a deterministic slug-based
+  ID: `<Slug1>-<Slug2>_<TypeSlug>_<Year>` plus an optional `_<n>`
+  suffix only when the deterministic prefix collides with an existing
+  row. Re-running the same draft now produces the same ID.
 
 - Schema + workbook loader (roadmap step 1).
 - News-monitoring + LLM extraction pipeline (roadmap step 3): SpaceNews →

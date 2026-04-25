@@ -9,10 +9,12 @@ This codebase replaces the manual parts of that workflow with:
 1. A typed **taxonomy** + **SQLite loader** that turns the workbook into a
    normalized, queryable database.
 2. A **news-monitoring pipeline** that ingests space-domain news from RSS
-   feeds and HTML scrapers, extracts structured `partnership_draft` rows via
-   Claude, and queues them for analyst approval.
-3. A **CLI review loop** that promotes approved drafts into the live
-   `partnership` table.
+   feeds and HTML scrapers, runs every fetched article through a
+   **country-tagger** (so any article is queryable by country), then routes
+   it to one or more **typed signal extractors** (partnership / contract /
+   leadership_change), and queues each draft for analyst approval.
+3. A **CLI + Streamlit review loop** that promotes approved drafts into the
+   live tables.
 
 For the full per-sheet analysis of the source workbook and the rationale
 behind which parts to automate, see `Space_Dashboard_Summary.md`. For the
@@ -119,17 +121,33 @@ sources.iter_candidates()  ──▶  prefilter (LLM, optional, per-source)
             skipped (audit row) ◀──────┤────▶ fetch.fetch() ──▶ news_article
                                                                         │
                                                                         ▼
+                                              country_tag.tag()  ──▶ news_article_country
+                                                                        │
+                                                                        ▼
                                               extract.extract_with_escalation()
                                                   - claude-haiku-4-5 first
-                                                  - sonnet-4-6 if confidence='low'
+                                                  - sonnet-4-6 escalates on:
+                                                       low confidence
+                                                       long article (>3K input tok)
+                                                       partnership w/ no countries
                                                                         │
                                                                         ▼
                                                        drafts.insert_draft()
-                                                                        │
+                                                                        │  ──▶ partnership_draft
                                                                         ▼
-                                                           partnership_draft
-                                                                (status='pending')
+                                              signals.route()  ──▶ list of extra signals
+                                                                        │
+                                              ┌─────────────────────────┼─────────────────────────┐
+                                              ▼                         ▼                         ▼
+                                       extract_contract()       extract_leadership_change()    (future kinds)
+                                              │                         │
+                                              ▼                         ▼
+                                        contract_draft           leadership_change_draft
+                                                          (status='pending')
 ```
+
+Every LLM call (extract, country_tag, signal_router, signal_*) writes a row to
+`extraction_usage` for cost reporting via `space-monitor cost`.
 
 ---
 
@@ -210,12 +228,45 @@ space-monitor review list   [--limit N]
 space-monitor review show   <draft-id>
 space-monitor review approve <draft-id> --reviewer <name> [--notes "…"]
 space-monitor review reject  <draft-id> --reviewer <name> --reason "…"
+space-monitor review skipped [--source X] [--since YYYY-MM-DD] [--limit N]
 ```
 
 `approve` inserts the draft into the live `partnership` table with a
-generated `partnership_id`, then sets the draft's `draft_status='approved'`
-and links it via `promoted_partnership_id`. `reject` is non-destructive —
-the draft stays in the DB with status='rejected' for audit.
+deterministic, slug-based `partnership_id` (`<Org1>-<Org2>_<Type>_<Year>`,
+collision-suffixed when needed), then sets the draft's
+`draft_status='approved'` and links it via `promoted_partnership_id`.
+`reject` is non-destructive — the draft stays in the DB with
+status='rejected' for audit. `skipped` lists prefilter-skipped articles for
+spot-checking the title classifier.
+
+### Backfill / re-run
+
+```bash
+space-monitor tag-countries [--source X] [--limit N] [--retag]
+space-monitor reextract     [--source X] [--since YYYY-MM-DD] \
+                            [--what drafts|tags|both] [--limit N] [--dry-run]
+```
+
+`tag-countries` runs the country-tagger over already-fetched articles that
+don't have tags yet (or, with `--retag`, over all articles in scope). Use
+this once to backfill the country layer for articles ingested before the
+tagger landed.
+
+`reextract` wipes drafts and/or country tags for in-scope articles and
+re-runs the extraction. Use after prompt or schema changes — it lets you
+push the new extractor over the historical news_article rows without
+re-fetching anything.
+
+### Cost reporting
+
+```bash
+space-monitor cost [--since YYYY-MM-DD]
+```
+
+Aggregates the `extraction_usage` audit table by `(model, kind)` —
+calls, input tokens, output tokens, cache reads/writes. `kind` covers
+`extract`, `country_tag`, `signal_router`, `signal_contract`,
+`signal_leadership_change`.
 
 ### UI
 
@@ -388,9 +439,13 @@ That's it. `space-monitor ingest --source myfeed` works immediately;
 Six steps from `Space_Dashboard_Summary.md`:
 
 1. ✅ **Schema as code** — `taxonomy.py` + `db.py` + `load.py`.
-2. ⬜ **Geocoding service** — replace LatLong sheet (P0 in BACKLOG).
-3. ✅ **News pipeline** — sources → fetch → extract → drafts → review.
+2. ✅ **Geocoding service** — `space_monitor/geocode.py` wraps the bundled
+   `city` gazetteer with a `geocode(city, country) -> GeoHit` API
+   (city+country exact → case-insensitive → city-only fallback).
+3. ✅ **News pipeline** — sources → fetch → country-tag → extract → multi-
+   signal router → drafts → review. Now produces `partnership`, `contract`,
+   and `leadership_change` drafts.
 4. ⬜ **External-database connectors** — first one (SIPRI or UCS satellites)
    in P1.
 5. ⬜ **Scoring rubrics as functions** — P3.
-6. ⬜ **Web UI for the review queue** — P2 (CLI works for now).
+6. ✅ **Web UI for the review queue** — Streamlit UI shipped (`space-monitor ui`).
