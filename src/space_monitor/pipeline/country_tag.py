@@ -38,7 +38,6 @@ def _build_schema() -> dict[str, Any]:
         "properties": {
             "countries": {
                 "type": "array",
-                "maxItems": 12,
                 "items": {
                     "type": "object",
                     "additionalProperties": False,

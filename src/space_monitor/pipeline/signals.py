@@ -65,7 +65,6 @@ _ROUTER_SCHEMA = {
         "signals": {
             "type": "array",
             "items": {"type": "string", "enum": list(SIGNAL_KINDS)},
-            "uniqueItems": True,
         },
         "rationale": {
             "type": "string",
@@ -437,6 +436,169 @@ def has_signal(conn: sqlite3.Connection, article_id: int, kind: str) -> bool:
         (article_id, kind),
     ).fetchone()
     return row is not None
+
+
+# ---------------------------------------------------------------------------
+# Review actions for non-partnership signals
+# ---------------------------------------------------------------------------
+
+
+_CONTRACT_LIVE_FIELDS = (
+    "description", "contract_year", "value_musd",
+    "customer", "customer_country", "contractor", "contractor_country",
+    "primary_mission", "mission_type",
+)
+_LEADERSHIP_LIVE_FIELDS = (
+    "description", "change_year", "person_name", "organization",
+    "country", "new_role", "prior_role", "change_kind",
+)
+
+
+def approve_contract(
+    conn: sqlite3.Connection,
+    draft_id: int,
+    *,
+    reviewer: str,
+    edits: dict | None = None,
+) -> str:
+    """Promote a contract_draft to the live ``contract`` table. Returns
+    the new contract_id."""
+    return _approve_signal(
+        conn, draft_id, reviewer=reviewer, edits=edits,
+        draft_table="contract_draft",
+        live_table="contract",
+        live_id_col="contract_id",
+        promoted_col="promoted_contract_id",
+        fields=_CONTRACT_LIVE_FIELDS,
+        id_factory=_contract_id,
+    )
+
+
+def approve_leadership(
+    conn: sqlite3.Connection,
+    draft_id: int,
+    *,
+    reviewer: str,
+    edits: dict | None = None,
+) -> str:
+    return _approve_signal(
+        conn, draft_id, reviewer=reviewer, edits=edits,
+        draft_table="leadership_change_draft",
+        live_table="leadership_change",
+        live_id_col="leadership_id",
+        promoted_col="promoted_leadership_id",
+        fields=_LEADERSHIP_LIVE_FIELDS,
+        id_factory=_leadership_id,
+    )
+
+
+def reject_signal_draft(
+    conn: sqlite3.Connection,
+    draft_id: int,
+    *,
+    kind: str,
+    reviewer: str,
+    reason: str,
+) -> None:
+    """Mark a contract or leadership-change draft as rejected."""
+    table = {
+        "contract": "contract_draft",
+        "leadership_change": "leadership_change_draft",
+    }[kind]
+    conn.execute(
+        f"UPDATE {table} SET draft_status='rejected', reviewer=?, review_notes=? "
+        f"WHERE id=? AND draft_status='pending'",
+        (reviewer, reason, draft_id),
+    )
+    conn.commit()
+
+
+def _approve_signal(
+    conn: sqlite3.Connection,
+    draft_id: int,
+    *,
+    reviewer: str,
+    edits: dict | None,
+    draft_table: str,
+    live_table: str,
+    live_id_col: str,
+    promoted_col: str,
+    fields: tuple[str, ...],
+    id_factory,
+) -> str:
+    cur = conn.execute(f"SELECT * FROM {draft_table} WHERE id = ?", (draft_id,))
+    row = cur.fetchone()
+    if not row:
+        raise ValueError(f"{draft_table} #{draft_id} not found")
+    cols = [c[0] for c in cur.description]
+    d = dict(zip(cols, row))
+    if d["draft_status"] != "pending":
+        raise ValueError(f"{draft_table} #{draft_id} is {d['draft_status']!r}, not pending")
+
+    if edits:
+        for k, v in edits.items():
+            if k in fields:
+                d[k] = v
+
+    live_id = id_factory(d, conn)
+    insert_cols = [live_id_col, "source_url", "analyst", *fields]
+    placeholders = ", ".join(["?"] * len(insert_cols))
+    src_url_row = conn.execute(
+        "SELECT url FROM news_article WHERE id = ?", (d["source_article_id"],),
+    ).fetchone()
+    src_url = src_url_row[0] if src_url_row else None
+    values = [live_id, src_url, reviewer] + [d.get(f) for f in fields]
+    conn.execute(
+        f"INSERT INTO {live_table} ({', '.join(insert_cols)}) VALUES ({placeholders})",
+        values,
+    )
+    conn.execute(
+        f"UPDATE {draft_table} SET draft_status='approved', reviewer=?, "
+        f"{promoted_col}=? WHERE id=?",
+        (reviewer, live_id, draft_id),
+    )
+    conn.commit()
+    return live_id
+
+
+def _slug(value: str | None, fallback: str, max_len: int = 24) -> str:
+    import re
+    if not value:
+        return fallback
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "", value)
+    return cleaned[:max_len] or fallback
+
+
+def _contract_id(d: dict, conn: sqlite3.Connection) -> str:
+    cust = _slug(d.get("customer"), "Customer")
+    vendor = _slug(d.get("contractor"), "Contractor")
+    year = str(d.get("contract_year") or "")
+    base = f"{cust}-{vendor}_Contract"
+    if year:
+        base = f"{base}_{year}"
+    return _next_unique(conn, "contract", "contract_id", base)
+
+
+def _leadership_id(d: dict, conn: sqlite3.Connection) -> str:
+    person = _slug(d.get("person_name"), "Person")
+    org = _slug(d.get("organization"), "Org")
+    year = str(d.get("change_year") or "")
+    base = f"{person}_{org}"
+    if year:
+        base = f"{base}_{year}"
+    return _next_unique(conn, "leadership_change", "leadership_id", base)
+
+
+def _next_unique(conn: sqlite3.Connection, table: str, col: str, base: str) -> str:
+    for suffix in ("",) + tuple(f"_{n}" for n in range(2, 100)):
+        candidate = base + suffix
+        row = conn.execute(
+            f"SELECT 1 FROM {table} WHERE {col} = ? LIMIT 1", (candidate,),
+        ).fetchone()
+        if not row:
+            return candidate
+    import secrets as _secrets
+    return f"{base}_{_secrets.token_hex(3)}"
 
 
 # ---------------------------------------------------------------------------
