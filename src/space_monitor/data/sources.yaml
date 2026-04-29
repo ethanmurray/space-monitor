@@ -303,14 +303,16 @@ sources:
   # ============ Tried, blocked ============
 
   - name: jaxa
-    domain: global.jaxa.jp
-    status: blocked
-    type: scraper
+    domain: humans-in-space.jaxa.jp
+    status: working
+    type: manual
     workbook_tally: 33
     description: JAXA — Japanese Aerospace Exploration Agency
     coverage_focus: Japan
-    comment: WAF blocks default User-Agent (returns 403 even on the news index).
-      Multiple UA variants tested. Needs Playwright-style browser fetcher.
+    comment: global.jaxa.jp is CloudFront-blocked from every IP we've tried.
+      Workaround: humans-in-space.jaxa.jp/en/news/<year>/ subdomain works
+      from regular browsers and surfaces JAXA-NASA, JAXA-ISRO LUPEX,
+      Kibo-ABC partnership content. Backfilled via Chrome MCP.
 
   - name: kari
     domain: kari.re.kr
