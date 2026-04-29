@@ -613,3 +613,13 @@ sources:
     description: TED — EU Tenders Electronic Daily
     coverage_focus: EU procurement
     comment: Same posture as SAM.gov.
+
+  - name: aeb
+    domain: gov.br/aeb
+    status: working
+    type: manual
+    description: AEB — Agência Espacial Brasileira (Brazilian Space Agency)
+    coverage_focus: Brazil, Portuguese-language. Distinct from INPE
+      (research institute) — AEB is the policy/cooperation body.
+    comment: News at /aeb/pt-br/assuntos/noticias. Reachable from local
+      IPs. Backfilled via Chrome MCP + import_from_json.py.
