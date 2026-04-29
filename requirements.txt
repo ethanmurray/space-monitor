@@ -1,0 +1,4 @@
+# Streamlit Cloud installs from this file before launching the app.
+# Installing the local package (`.`) pulls in every dep declared in
+# pyproject.toml, so we don't have to keep two lists in sync.
+.

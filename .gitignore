@@ -1,25 +1,24 @@
-__pycache__/
-*.pyc
-*.egg-info/
-.venv/
+
 build/
-dist/
+.claude/
+# Claude Code harness state (scheduled tasks, etc.) — local only.
 *.db
 *.db-journal
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Secrets — never commit
+dist/
+*.egg-info/
 .env
 .env.*
 !.env.example
-.streamlit/secrets.toml
-
-# Source workbook + analyst-curated outputs — kept out of git for privacy.
+logs/
+.mypy_cache/
 # Place locally to run `space-monitor extract-taxonomy` / `load`.
+*.pyc
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+# Secrets — never commit
+# Source workbook + analyst-curated outputs — kept out of git for privacy.
 Space_Dashboard_Hardcopy.xlsx
+.streamlit/secrets.toml
+.venv/
 *.xlsx
-
-# Claude Code harness state (scheduled tasks, etc.) — local only.
-.claude/
