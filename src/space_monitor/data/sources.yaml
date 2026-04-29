@@ -625,3 +625,26 @@ sources:
       (research institute) — AEB is the policy/cooperation body.
     comment: News at /aeb/pt-br/assuntos/noticias. Reachable from local
       IPs. Backfilled via Chrome MCP + import_from_json.py.
+
+  - name: lsa
+    domain: space-agency.public.lu
+    status: working
+    type: manual
+    description: LSA — Luxembourg Space Agency
+    coverage_focus: Luxembourg, asteroid mining, EU space-resources policy
+    comment: News at /en/news-events.html. Reachable from local IPs.
+      215+ articles in archive. High partnership signal —
+      Luxembourg-ESA-Trillium Tech-Google Cloud Lunar-FM, ESA Civil
+      Security from Space, EU Space Act standardization. Backfilled
+      via Chrome MCP.
+
+  - name: uksa
+    domain: gov.uk/government/organisations/uk-space-agency
+    status: working
+    type: manual
+    description: UK Space Agency (subset of govuk RSS — direct news page
+      surfaces UKSA-specific releases more reliably)
+    coverage_focus: UK civil + commercial space, partnerships
+    comment: govuk RSS already catches UKSA items but with prefilter
+      churn. Direct page is more curated. Includes UK-Ukraine landmark
+      MoU (2026-03), Scottish-SpaceX Transporter-16, ESA GSTP funding.
