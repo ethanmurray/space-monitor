@@ -721,3 +721,13 @@ sources:
     comment: Articles at /noticias/. Argentina was only Latin American
       country invited to NASA Artemis II as secondary payload, alongside
       Germany, Saudi Arabia, South Korea.
+
+  - name: casc
+    domain: english.spacechina.com
+    status: working
+    type: manual
+    description: CASC — China Aerospace Science and Technology Corporation
+    coverage_focus: China space industrial conglomerate, launches
+    comment: English version of spacechina.com. China-Pakistan PRSC-EO3
+      launch (Long March-6 from Taiyuan), Tianwen-2/CNSA missions
+      overview, BeiDou expansion.
