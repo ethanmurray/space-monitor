@@ -383,14 +383,13 @@ sources:
 
   - name: thespacereview
     domain: thespacereview.com
-    status: blocked
-    type: scraper
+    status: working
+    type: manual
     description: The Space Review — long-form analysis, weekly cadence
     coverage_focus: Strategic analysis, US-anchored
-    comment: No RSS feed (/feed/, /index.rss, /index.xml all 404). HTML
-      monthly index exists but article URL pattern needs DOM inspection.
-      Could use the ISRO-style two-step pattern when the time investment
-      is justified — low cadence makes this lower-priority.
+    comment: Reachable from local IPs but not from CI. Article URLs
+      follow /article/N/1 pattern. Backfilled via Chrome MCP +
+      import_from_json.py until a permanent adapter exists.
 
   - name: mofa_jp
     domain: mofa.go.jp
