@@ -437,7 +437,19 @@ sources:
     coverage_focus: China weather satellites
     comment: Probed RSS endpoint failed. May need a Chinese-language RSS path
       or the entire site is JS-rendered. Lower priority — Chinese coverage
-      better served by gnews's Chinese localized queries (when added).
+      better served by cnsa source (added 2026-04-29) or gnews Chinese
+      localized queries.
+
+  - name: cnsa
+    domain: cnsa.gov.cn
+    status: working
+    type: manual
+    description: CNSA — China National Space Administration
+    coverage_focus: China civil space, international cooperation
+    comment: English news index at /english/n6465652/n6465653/index.html.
+      Articles at .../content.html. Reachable from this network. Backfilled
+      via Chrome MCP + import_from_json.py. High partnership signal —
+      Chang'e lunar sample international loans, Lagrange-V cooperation.
 
   - name: unoosa
     domain: unoosa.org
