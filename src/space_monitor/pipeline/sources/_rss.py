@@ -17,7 +17,7 @@ from typing import Iterator
 import feedparser
 import httpx
 
-from .base import CandidateArticle
+from .base import CandidateArticle, log_fetch_fail
 
 
 USER_AGENT = (
@@ -46,7 +46,8 @@ class RSSSource:
                 resp = client.get(self.feed_url)
                 resp.raise_for_status()
                 return resp.text
-        except Exception:
+        except Exception as exc:
+            log_fetch_fail(self.name, self.feed_url, exc)
             return None
 
     def iter_candidates(self, limit: int | None = None) -> Iterator[CandidateArticle]:

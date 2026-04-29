@@ -30,7 +30,7 @@ from typing import Iterator
 
 import httpx
 
-from .base import CandidateArticle
+from .base import CandidateArticle, log_fetch_fail
 
 
 _USER_AGENT = (
@@ -84,10 +84,12 @@ class IsroSource:
             headers={"User-Agent": _USER_AGENT},
         ) as client:
             # 1. Homepage → Latest News section → article URLs.
+            home_url = f"{self.base_url}/"
             try:
-                home = client.get(f"{self.base_url}/")
+                home = client.get(home_url)
                 home.raise_for_status()
-            except Exception:
+            except Exception as exc:
+                log_fetch_fail(self.name, home_url, exc)
                 return
             html = home.text
             ln_start = html.find("Latest News")

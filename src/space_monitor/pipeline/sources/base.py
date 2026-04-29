@@ -3,8 +3,29 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 from dataclasses import dataclass
 from typing import Iterator, Protocol
+
+
+def log_fetch_fail(source: str, url: str, exc: BaseException) -> None:
+    """Print a structured fetch-failure line.
+
+    Adapters previously caught network errors and returned silently, which
+    made it impossible to distinguish "feed is empty" from "feed is blocked
+    on this network". Calling this from every except-block makes the failure
+    surface in the ingest log so a 0-candidates run is debuggable.
+    """
+    detail = ""
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status is not None:
+        detail = f" status={status}"
+    print(
+        f"[fetch-fail] source={source} url={url}{detail} "
+        f"{type(exc).__name__}: {exc}",
+        file=sys.stderr,
+        flush=True,
+    )
 
 
 @dataclass(frozen=True)

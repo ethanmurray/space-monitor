@@ -17,7 +17,7 @@ from typing import Iterator
 
 import httpx
 
-from .base import CandidateArticle
+from .base import CandidateArticle, log_fetch_fail
 
 
 _USER_AGENT = (
@@ -54,10 +54,12 @@ class UaeSpaceSource:
             follow_redirects=True,
             headers={"User-Agent": _USER_AGENT},
         ) as client:
+            url = f"{self.base_url}{self.index_path}"
             try:
-                resp = client.get(f"{self.base_url}{self.index_path}")
+                resp = client.get(url)
                 resp.raise_for_status()
-            except Exception:
+            except Exception as exc:
+                log_fetch_fail(self.name, url, exc)
                 return
             html = resp.text
             for m in _ARTICLE_RE.finditer(html):

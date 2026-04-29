@@ -23,7 +23,7 @@ from typing import Iterator
 
 import httpx
 
-from .base import CandidateArticle
+from .base import CandidateArticle, log_fetch_fail
 
 
 _USER_AGENT = (
@@ -71,7 +71,8 @@ class DisDgSource:
                 try:
                     resp = client.get(url)
                     resp.raise_for_status()
-                except Exception:
+                except Exception as exc:
+                    log_fetch_fail(self.name, url, exc)
                     return
                 html = resp.text
                 page_emitted = 0

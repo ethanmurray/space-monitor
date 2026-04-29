@@ -31,7 +31,7 @@ from urllib.parse import urlencode
 import feedparser
 from googlenewsdecoder import gnewsdecoder
 
-from .base import CandidateArticle
+from .base import CandidateArticle, log_fetch_fail
 from .gnews_queries import ALL_QUERIES, Query
 
 
