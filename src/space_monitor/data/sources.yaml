@@ -648,3 +648,33 @@ sources:
     comment: govuk RSS already catches UKSA items but with prefilter
       churn. Direct page is more curated. Includes UK-Ukraine landmark
       MoU (2026-03), Scottish-SpaceX Transporter-16, ESA GSTP funding.
+
+  - name: csis_aerospace
+    domain: aerospace.csis.org
+    status: working
+    type: manual
+    description: CSIS Aerospace Security Project (think tank)
+    coverage_focus: US space policy, geopolitical analysis
+    comment: Long-form policy analysis. Includes Space Threat Assessment
+      (annual), Next Steps for U.S.-Japan Space Alliance, Post-ISS
+      partnerships analysis.
+
+  - name: swf
+    domain: swfound.org
+    status: working
+    type: manual
+    description: Secure World Foundation (think tank)
+    coverage_focus: Space sustainability, governance, OST, COPUOS
+    comment: Foundation working on Outer Space Treaty, COPUOS
+      submissions, multilateral nuclear-in-space policy. Partnerships
+      with CSR + GCSP. Annual Summit for Space Sustainability.
+
+  - name: aprsaf
+    domain: aprsaf.org
+    status: working
+    type: manual
+    description: APRSAF — Asia-Pacific Regional Space Agency Forum
+    coverage_focus: Asia-Pacific multilateral space cooperation
+    comment: Annual forum hosted by JAXA. APRSAF-31 in Cebu (2025-11),
+      APRSAF-32 in Bangkok (2026-10) co-organized with GISTDA Thailand.
+      News mail archive at /newsmails_newsletters/mails_<year>/.
