@@ -710,3 +710,14 @@ sources:
     comment: UAE main space agency. Different from blocked space.gov.ae.
       Etihad-SAT (UAE-South Korea Satrec partnership), MBRSC-SpaceData
       (Tokyo) digital twin, MBRSC-Azercosmos (Azerbaijan), Kibo-RPC.
+
+  - name: conae
+    domain: argentina.gob.ar/ciencia/conae
+    status: working
+    type: manual
+    description: CONAE — Comisión Nacional de Actividades Espaciales (Argentina)
+    coverage_focus: Argentina, Spanish-language. ATENEA on Artemis II
+      (Argentina-NASA-Vietnam VNSC partnership), Latin America space.
+    comment: Articles at /noticias/. Argentina was only Latin American
+      country invited to NASA Artemis II as secondary payload, alongside
+      Germany, Saudi Arabia, South Korea.
