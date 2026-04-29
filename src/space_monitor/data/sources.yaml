@@ -689,3 +689,24 @@ sources:
       EU-Switzerland Galileo+EGNOS agreement (April 2026), EGNOS Safety
       of Life across EU27 + Switzerland + Iceland + Norway + Serbia +
       Montenegro, EU State aid for EGNSS in ERTMS rail.
+
+  - name: vnsc
+    domain: vnsc.org.vn
+    status: working
+    type: manual
+    description: VNSC — Vietnam National Space Center
+    coverage_focus: Vietnam, Vietnam-Japan space cooperation
+    comment: Vietnam-Japan strategic partnership for LOTUSat-1/2 (VAST +
+      JAXA + JICA + METI + Sumitomo + NEC), MicroDragon/PicoDragon/
+      NanoDragon JAXA-launched satellites.
+
+  - name: mbrsc
+    domain: mbrsc.ae
+    status: working
+    type: manual
+    description: MBRSC — Mohammed Bin Rashid Space Centre (UAE)
+    coverage_focus: UAE space programs (Mars Hope, Emirates Lunar
+      Mission, MBZ-SAT, astronauts)
+    comment: UAE main space agency. Different from blocked space.gov.ae.
+      Etihad-SAT (UAE-South Korea Satrec partnership), MBRSC-SpaceData
+      (Tokyo) digital twin, MBRSC-Azercosmos (Azerbaijan), Kibo-RPC.
