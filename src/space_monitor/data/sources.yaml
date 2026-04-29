@@ -731,3 +731,13 @@ sources:
     comment: English version of spacechina.com. China-Pakistan PRSC-EO3
       launch (Long March-6 from Taiyuan), Tianwen-2/CNSA missions
       overview, BeiDou expansion.
+
+  - name: eda
+    domain: eda.europa.eu
+    status: working
+    type: manual
+    description: EDA — European Defence Agency
+    coverage_focus: EU defence, EDA-ESA cooperation
+    comment: EDA-ESA joint Earth observation for defence (2026-04),
+      EDA VLEO-DEF EUR 15.65M military satellite project (Spain +
+      France + Luxembourg + Portugal + Slovenia + 17 industry partners).
