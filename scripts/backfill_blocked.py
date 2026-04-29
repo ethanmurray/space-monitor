@@ -33,7 +33,7 @@ if os.path.exists(_ENV):
 from space_monitor import db  # noqa: E402
 from space_monitor.pipeline import country_tag as country_tag_mod  # noqa: E402
 from space_monitor.pipeline import drafts as drafts_mod  # noqa: E402
-from space_monitor.pipeline import extract, fetch  # noqa: E402
+from space_monitor.pipeline import extract, fetch, signals  # noqa: E402
 from space_monitor.pipeline.sources.base import CandidateArticle  # noqa: E402
 
 USER_AGENT = (
@@ -194,18 +194,18 @@ def ingest_candidate(conn, candidate: CandidateArticle, rate_secs: float) -> str
     # Extract partnerships
     try:
         ex = extract.extract_with_escalation(cleaned, title=title)
-        drafts_mod.upsert_from_extraction(
-            conn, source_article_id=result.article_id, extraction=ex
+        drafts_mod.insert_draft(
+            conn, article_id=result.article_id, extraction=ex
         )
         extract.log_usage(
             conn,
             article_id=result.article_id,
             kind="extract",
             model=ex.model,
-            input_tokens=ex.input_tokens,
-            output_tokens=ex.output_tokens,
-            cache_read_input_tokens=ex.cache_read_input_tokens,
-            cache_creation_input_tokens=ex.cache_creation_input_tokens,
+            input_tokens=ex.usage.input_tokens,
+            output_tokens=ex.usage.output_tokens,
+            cache_read_input_tokens=ex.usage.cache_read_input_tokens,
+            cache_creation_input_tokens=ex.usage.cache_creation_input_tokens,
         )
         conn.execute(
             "UPDATE news_article SET status='extracted' WHERE id=?",
@@ -215,6 +215,49 @@ def ingest_candidate(conn, candidate: CandidateArticle, rate_secs: float) -> str
     except Exception as exc:
         print(f"  [extract-fail] {candidate.url}: {exc}", file=sys.stderr)
         return "extract_failed"
+
+    # Multi-signal pass — match production ingest. Route, then run typed
+    # extractors for any non-partnership signals the article carries.
+    try:
+        if ex.payload.get("is_partnership"):
+            signals.record_signal(conn, result.article_id, "partnership")
+            conn.commit()
+        router = signals.route(cleaned, title=title)
+        extract.log_usage(
+            conn,
+            model=router.model, kind="signal_router",
+            article_id=result.article_id,
+            input_tokens=router.input_tokens,
+            output_tokens=router.output_tokens,
+            cache_read_input_tokens=router.cache_read_input_tokens,
+            cache_creation_input_tokens=router.cache_creation_input_tokens,
+        )
+        for kind in router.signals:
+            if kind == "partnership" or signals.has_signal(conn, result.article_id, kind):
+                continue
+            try:
+                if kind == "contract":
+                    res = signals.extract_contract(cleaned, title=title, url=candidate.url)
+                    signals.persist_contract(conn, result.article_id, res)
+                elif kind == "leadership_change":
+                    res = signals.extract_leadership_change(cleaned, title=title, url=candidate.url)
+                    signals.persist_leadership(conn, result.article_id, res)
+                else:
+                    continue
+                extract.log_usage(
+                    conn,
+                    model=res.model, kind=f"signal_{kind}",
+                    article_id=result.article_id,
+                    input_tokens=res.input_tokens,
+                    output_tokens=res.output_tokens,
+                    cache_read_input_tokens=res.cache_read_input_tokens,
+                    cache_creation_input_tokens=res.cache_creation_input_tokens,
+                )
+            except Exception as e:
+                print(f"  [{kind}-fail] {candidate.url}: {e}", file=sys.stderr)
+    except Exception as e:
+        print(f"  [signal-router-fail] {candidate.url}: {e}", file=sys.stderr)
+
     return "extracted"
 
 
