@@ -318,8 +318,20 @@ sources:
     type: scraper
     description: KARI — Korea Aerospace Research Institute
     coverage_focus: South Korea
-    comment: Site is JS-rendered (homepage returns 82-byte skeleton without
-      JS execution). Needs Playwright.
+    comment: KARI's English site is offline. Most external comms moved to
+      KASA (Korea AeroSpace Administration) in 2024. Use the kasa source
+      instead.
+
+  - name: kasa
+    domain: kasa.go.kr
+    status: working
+    type: manual
+    description: KASA — Korea AeroSpace Administration (national agency
+      created 2024, absorbs KARI external comms)
+    coverage_focus: South Korea
+    comment: Press release list at /bbs/BBSMSTR_000000000041/list.do.
+      Articles open via JS form-POST (nttId param), so no plain GET URL
+      per article. Backfilled via Chrome MCP + import_from_json.py.
 
   - name: dlr
     domain: dlr.de
