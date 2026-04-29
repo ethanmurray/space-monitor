@@ -323,14 +323,14 @@ sources:
 
   - name: dlr
     domain: dlr.de
-    status: blocked
-    type: scraper
+    status: working
+    type: manual
     workbook_tally: 44
     description: DLR — German Aerospace Center
     coverage_focus: Germany
-    comment: News page is XHR-loaded (the /en/latest/news endpoint shows
-      "Loading" placeholder without JS). RSS endpoints all 404. Needs
-      Playwright OR reverse-engineering the XHR JSON endpoint.
+    comment: News page is React-rendered, blocks plain httpx. Backfilled
+      via scripts/import_from_json.py using Chrome MCP to harvest article
+      bodies. Re-run periodically until a Playwright adapter exists.
 
   - name: uae
     domain: space.gov.ae

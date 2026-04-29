@@ -172,6 +172,15 @@ def ingest_candidate(conn, candidate: CandidateArticle, rate_secs: float) -> str
         (result.article_id,),
     ).fetchone()
     cleaned, title, _url = text_row
+    if not cleaned:
+        # trafilatura sometimes returns nothing on JS-rendered or empty pages.
+        # Mark the row as failed so we don't loop on it next run.
+        conn.execute(
+            "UPDATE news_article SET status='failed', failure_reason=? WHERE id=?",
+            ("backfill: empty cleaned_text", result.article_id),
+        )
+        conn.commit()
+        return "failed"
 
     # Country tag
     if not country_tag_mod.already_tagged(conn, result.article_id):
