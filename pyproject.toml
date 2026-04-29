@@ -17,6 +17,8 @@ dependencies = [
     "libsql-experimental>=0.0.55",
     "streamlit>=1.40",
     "pyyaml>=6.0",
+    "folium>=0.17",
+    "streamlit-folium>=0.22",
 ]
 
 [project.scripts]

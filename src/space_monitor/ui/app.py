@@ -833,8 +833,10 @@ def render_map() -> None:
         )
         return
 
-    from space_monitor import db, geocode
-    rows = []
+    from space_monitor import db
+    import json as _json
+    from importlib.resources import files as _pkg_files
+    rows: list = []
     with db.connect(db.resolve_db()) as conn:
         try:
             rows = conn.execute(
@@ -854,21 +856,57 @@ def render_map() -> None:
         except Exception as e:
             st.error(f"DB error: {e}")
             return
-    if not rows:
-        st.info("No partnerships in the DB yet.")
-        return
+        if not rows:
+            st.info("No partnerships in the DB yet.")
+            return
+    # Country pin locations come from a bundled centroid file (most-populous
+    # city per country). Avoids a DB hit and works against Turso, where the
+    # gazetteer table isn't loaded.
+    centroids_raw = _json.loads(
+        _pkg_files("space_monitor").joinpath("data/country_centroids.json").read_text("utf-8")
+    )
+    centroids = {k.lower(): v for k, v in centroids_raw.items()}
+    # Bridge between our partnership country labels and the gazetteer's spellings,
+    # plus pin multilateral bodies at their HQ city.
+    aliases = {
+        "czech republic": "czechia",
+        "dr congo": "congo (kinshasa)",
+        "north macedonia": "macedonia",
+        "sao tome & principe": "sao tome and principe",
+        "european union": None,  # Brussels
+        "nato": None,  # Brussels
+        "asean": None,  # Jakarta
+    }
+    multilateral_pins = {
+        "european union": [50.8503, 4.3517],
+        "nato": [50.8798, 4.4248],
+        "asean": [-6.2088, 106.8456],
+    }
 
+    def _lookup(name: str):
+        key = name.lower()
+        if key in centroids:
+            return centroids[key]
+        if key in multilateral_pins:
+            return multilateral_pins[key]
+        alias = aliases.get(key)
+        if alias and alias in centroids:
+            return centroids[alias]
+        return None
+
+    country_to_loc = {n: tuple(_lookup(n)) for n, *_ in rows if _lookup(n) is not None}
+    missing = [n for n, *_ in rows if _lookup(n) is None]
+    if missing:
+        st.caption(f"{len(country_to_loc)}/{len(rows)} countries plotted. Skipped: {', '.join(missing[:8])}{'…' if len(missing) > 8 else ''}.")
     m = folium.Map(location=[20, 0], zoom_start=2, tiles="cartodbpositron")
     for country, n, strength in rows:
-        # Geocode against the capital (or biggest city, as a proxy when
-        # capital isn't tagged in our gazetteer).
-        hit = geocode.geocode(country, country) or geocode.geocode(country)
-        if not hit:
+        loc = country_to_loc.get(country)
+        if not loc:
             continue
         radius = max(4, min(25, int(n ** 0.5) * 2))
         color = "#1f77b4" if (strength or 0) < 5 else "#ff7f0e"
         folium.CircleMarker(
-            location=[hit.lat, hit.lng], radius=radius,
+            location=list(loc), radius=radius,
             popup=folium.Popup(
                 f"<b>{country}</b><br/>{n} partnerships<br/>"
                 f"avg strength: {strength:.1f}", max_width=200,
