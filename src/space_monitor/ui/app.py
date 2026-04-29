@@ -944,13 +944,20 @@ def render_search() -> None:
     """
     params: list = []
     if q:
-        sql += " AND (a.title LIKE ? OR d.description LIKE ?)"
+        # Match in title, description, OR any country tag — so a single
+        # search box works whether the user types a keyword or a country.
+        sql += (" AND (a.title LIKE ? COLLATE NOCASE "
+                "      OR d.description LIKE ? COLLATE NOCASE "
+                "      OR a.id IN (SELECT article_id FROM news_article_country "
+                "                   WHERE country LIKE ? COLLATE NOCASE))")
         like = f"%{q.strip()}%"
-        params.extend([like, like])
+        params.extend([like, like, like])
     if country:
+        # Case-insensitive substring match so 'japan' finds 'Japan' and
+        # 'united' finds 'United States' / 'United Kingdom'.
         sql += (" AND a.id IN (SELECT article_id FROM news_article_country "
-                " WHERE country = ?)")
-        params.append(country.strip())
+                " WHERE country LIKE ? COLLATE NOCASE)")
+        params.append(f"%{country.strip()}%")
     if status != "any":
         sql += " AND a.status = ?"
         params.append(status)
