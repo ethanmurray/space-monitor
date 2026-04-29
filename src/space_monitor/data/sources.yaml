@@ -404,14 +404,15 @@ sources:
 
   - name: pesco
     domain: pesco.europa.eu
-    status: blocked
-    type: scraper
+    status: working
+    type: manual
     workbook_tally: 86
     description: EU Permanent Structured Cooperation
     coverage_focus: EU defense + space industrial cooperation
-    comment: SSL cert verification error from this environment ("unable to
-      verify the first certificate"). Worth retrying from a different
-      network or with adjusted SSL config.
+    comment: Reachable via Chrome MCP. Low cadence — only 4-5 news items
+      per quarter. Mostly EU defense projects but some space-relevant
+      items (TWISTER space-based early warning, satellite/seabed projects).
+      Backfilled via import_from_json.py.
 
   # ============ Probed, low signal ============
 
