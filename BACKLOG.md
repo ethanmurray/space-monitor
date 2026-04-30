@@ -154,6 +154,96 @@ Today our 12 sources lean US/EU. The countries where partnerships are most
       review queue is one feature in a larger UI, not a standalone item
       anymore.
 
+### Structured data sources beyond news
+
+A second tier of authoritative, structured data — parallel to the news
+pipeline rather than feeding it. Each becomes its own table joined into
+the partnership / country views. Brainstormed 2026-04-30; sequencing
+suggestion at the bottom.
+
+- [ ] **UCS Satellite Database** (Union of Concerned Scientists). Quarterly
+      CSV snapshot of every operational satellite (~7,500 rows) with
+      `Operator`, `Country of Operator/Owner`, `Country of Contractor`,
+      `Launch Site`, `Purpose`. Every multi-country/multi-operator row is
+      a *de facto* partnership. Highest leverage single item — would let
+      country briefings answer "show me every Japan-Italy joint satellite"
+      deterministically instead of relying on LLM extraction. Single CSV
+      ingest + new `satellite` table + join into partnership view. Est.
+      ~30 min scaffolding. *Recommended first.*
+
+- [ ] **UN OOSA Online Register of Space Objects.** Treaty-mandated; every
+      state files a registration form per launched object with launching
+      state, ownership, function, orbital params. Form structure has
+      built-in international cooperation fields ("multiple launching
+      states"). Public, downloadable CSV/XML. Catches every state-level
+      partnership at the legal level. Slower-changing than UCS but more
+      authoritative on bilateral state agreements.
+
+- [ ] **SEC EDGAR earnings filings + transcripts.** For US-listed space
+      pure-plays (Rocket Lab, Planet, Iridium, AST SpaceMobile, Spire,
+      BlackSky, Intuitive Machines, Terran Orbital, Redwire, L3Harris,
+      Lockheed Martin / Boeing / Northrop space segments) — 10-K, 10-Q,
+      8-K, and especially **earnings call transcripts** contain dense,
+      dated, attributed contract/partnership disclosures. Analysts ask
+      "who else are you talking to?" and management answers with names.
+      Same shape: **Companies House (UK)** for OneWeb/Inmarsat-era,
+      **TSX** for MDA. Pull via SEC EDGAR API + transcript provider
+      (Bamsec/Seeking Alpha — paid).
+
+- [ ] **SAM.gov / USASpending.gov** (US federal contract awards). Every
+      NASA, Space Force, NRO, NOAA contract: value, scope, type, prime +
+      subs. Same data, two interfaces. Ground truth for the "contract"
+      signal we're already extracting — instead of guessing dollar values
+      from press releases, we'd have the actual obligated value. Plus
+      **TED EU** for EU procurement, **DASA** for UK defense.
+
+- [ ] **GCAT** (Jonathan McDowell's General Catalog of Artificial Space
+      Objects). Comprehensive launch + payload registry going back to
+      Sputnik. Free CSV download. Lower priority than UCS for active-
+      partnership tracking but invaluable for historical context and for
+      validating launch dates in our existing `space_asset` table.
+
+- [ ] **CelesTrak TLE catalog** + **Space-Track.org** (US 18 SDS).
+      Real-time orbital tracking. Useful for the "where is X right now"
+      question but lower partnership signal than UCS / OOSA. Skip unless
+      we add a "live operations" view.
+
+- [ ] **FCC IBFS satellite licensing filings** (US). Foreign filings
+      reveal non-US operators' US market entry — a partnership leading
+      indicator. Bulk download available. Lower priority but
+      complementary to OOSA.
+
+- [ ] **Patent co-applicant filings** — USPTO + EPO + WIPO. Joint patent
+      applications between two-country/two-org pairs are partnership
+      evidence at the IP layer. Bulk APIs exist (USPTO PatentsView,
+      EPO OPS). Lower priority — partnership granularity is finer than
+      the briefing needs.
+
+- [ ] **Crunchbase funding rounds** (free tier limited; paid tier ~$30/mo
+      for the Pro API). Series A/B/C announcements for the "Portal-class"
+      space-mobility startups (Portal Space Systems, Impulse Space,
+      Starfish Space, Atomos, D-Orbit, Exotrail, Astroscale, Momentus,
+      ClearSpace) — partnership-dense (every customer = a public
+      partnership) but mostly *private*, so no SEC filings exist for them.
+      Best signal for them is funding round + customer announcements.
+      Trade press already covers most of these well; the marginal value
+      is structured deal data (round amount, lead investor, customer
+      names) the LLM can't reliably normalize from prose.
+
+- [ ] **Conference programs / abstracts** — IAC, Space Symposium,
+      SmallSat Conference. Programs are public PDFs with panel topics +
+      participant orgs. Lower priority — already covered by the news
+      pipeline when major announcements happen at the conference.
+
+**Recommended sequencing** if/when we work on this layer:
+1. UCS Satellite DB (easy CSV → immediate uplift to country pages)
+2. SEC EDGAR + transcripts for ~10 US-listed space pure-plays
+3. UN OOSA register (slow but most authoritative)
+4. SAM.gov / TED EU contract awards
+
+Each is a different table in our schema, so they fit cleanly alongside
+the existing news-article pipeline rather than replacing it.
+
 ## P3 — long-term roadmap items
 
 - [ ] **People extraction layer.** Add a `person_mention` table linking
