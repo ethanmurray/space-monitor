@@ -190,13 +190,19 @@ sources:
   - name: csa
     domain: asc-csa.gc.ca
     status: working
-    type: rss
+    type: scraper
     prefilter_required: false
     description: Canadian Space Agency
     coverage_focus: Canada — Lunar Gateway, Canadarm, EO
-    comment: Real RSS at /rss/default_eng.xml (the legacy /eng/rss-feeds/ path
-      404s). Required _rss.py refactor to use httpx — Government of Canada
-      CA chain isn't in Python's bundled urllib root store.
+    comment: HTML scrape of /eng/news/articles/ — article URLs encode date
+      as YYYY-MM-DD-<slug>.asp so no inline parsing needed (same approach
+      as disdg). Was an RSS adapter on /rss/default_eng.xml until 2026-05-16
+      when we caught the feed frozen at 2026-03-12 even though the live
+      index had 6 newer articles through 2026-04-23. CSA's CMS appears to
+      have a broken feed-regeneration job; no upstream contact to fix.
+      Switched to HTML scrape because the news index page does keep
+      updating. Loses RSS-only video items at /eng/multimedia/search/video/
+      (under 5% of historical CSA corpus, acceptable trade).
 
   - name: skao
     domain: skao.int

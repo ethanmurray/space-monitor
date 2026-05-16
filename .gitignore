@@ -3,6 +3,7 @@ build/
 .claude/
 # Claude Code harness state (scheduled tasks, etc.) — local only.
 *.db
+*.db-*
 *.db-journal
 dist/
 *.egg-info/
@@ -22,3 +23,6 @@ Space_Dashboard_Hardcopy.xlsx
 .streamlit/secrets.toml
 .venv/
 *.xlsx
+
+# Local DB backups — never commit
+backups/
