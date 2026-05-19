@@ -49,7 +49,7 @@ SOURCES=(spacenews satellitetoday)
       --source "$src" \
       --since 2026-01-01 \
       --max-candidates 100 \
-      --max-extractions 200 \
+      --max-extractions 300 \
       --rate-limit-secs 1.5 \
       || echo "[local-ingest] $src exited non-zero"
   done

@@ -402,7 +402,7 @@ For laptops that are reliably on at the cron time. Idempotent same as above.
 ```bash
 crontab -e
 # Add (substitute repo path and a year-bound `--since`):
-0 13 * * * cd /home/ethanmurray/repos/space-monitor && /usr/bin/env -S bash -c 'source .env && export ANTHROPIC_API_KEY && /usr/bin/python3 -m space_monitor.cli ingest --source all --since 2026-01-01 --max-candidates 50 --max-extractions 50 --rate-limit-secs 1.5' >> /var/log/space-monitor-ingest.log 2>&1
+0 13 * * * cd /home/ethanmurray/repos/space-monitor && /usr/bin/env -S bash -c 'source .env && export ANTHROPIC_API_KEY && /usr/bin/python3 -m space_monitor.cli ingest --source all --since 2026-01-01 --max-candidates 100 --max-extractions 300 --rate-limit-secs 1.5' >> /var/log/space-monitor-ingest.log 2>&1
 ```
 
 The end-of-run summary table in the log lists per-source counts. To find runs that produced something worth reviewing:
