@@ -59,6 +59,22 @@ P0 cleared in this pass — see DONE for details.
       (national space policy releases). Each is a small typed schema +
       router enum entry.
 
+- [ ] **Drain `status='fetched'` backlog before new candidates.** Today
+      `iter_candidates` always yields fresh URLs; if an earlier run
+      fetched an article but never extracted it (cap hit, Hrana
+      connection drop, mid-source timeout), it sits in `fetched` state
+      and competes for the cap on every subsequent run alongside new
+      arrivals. Over time this accumulates — observed on 2026-05-19 with
+      eusst (~13 items), skao (2 items), thespacereview (1 transient
+      Hrana failure from 2026-05-16), and 2 ancient spacenews items from
+      April. Fix: in `_ingest_one_source`, before iterating fresh
+      candidates, query `news_article WHERE source=? AND status='fetched'`
+      and re-yield those first (with their existing cleaned_text, so no
+      extra HTTP). Drains the backlog without paying re-fetch cost.
+      Cap raise from 200→300 (commit 346862f) is a band-aid; this is the
+      structural fix. See `MANUAL_REFRESH_PLAN.md` 2026-05-19 for the
+      diagnostic trail.
+
 ## P2 — broader source coverage
 
 ### Discovery (new article surfaces beyond polling known feeds)
