@@ -30,6 +30,17 @@ else
   exit 1
 fi
 
+# cron runs with a minimal PATH, so resolve the CLI explicitly. Prefer the
+# repo venv (how this machine installs it), then fall back to PATH.
+if [[ -x "$REPO/.venv/bin/space-monitor" ]]; then
+  SM="$REPO/.venv/bin/space-monitor"
+elif command -v space-monitor >/dev/null 2>&1; then
+  SM="$(command -v space-monitor)"
+else
+  echo "[local-ingest] space-monitor not found (no $REPO/.venv, not on PATH)" >&2
+  exit 1
+fi
+
 LOG_DIR="$REPO/logs"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/local-ingest-$(date -u +%Y-%m-%d).log"
@@ -51,7 +62,7 @@ SOURCES=(spacenews satellitetoday nasaspaceflight uae)
   for src in "${SOURCES[@]}"; do
     echo
     echo ">>>>> $src"
-    space-monitor ingest \
+    "$SM" ingest \
       --source "$src" \
       --since 2026-01-01 \
       --max-candidates 100 \

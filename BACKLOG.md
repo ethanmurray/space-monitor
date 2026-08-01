@@ -75,6 +75,30 @@ P0 cleared in this pass — see DONE for details.
       structural fix. See `MANUAL_REFRESH_PLAN.md` 2026-05-19 for the
       diagnostic trail.
 
+- [ ] **`status='failed'` articles are never retried.** Sibling to the
+      item above, but a different state and a bigger backlog. `fetch.fetch`
+      returns early on any existing `url_hash` *regardless of status*, so
+      a row that once failed is skipped forever — even when the failure
+      was transient (rate-limit 403, timeout, one-off empty extraction).
+      As of 2026-08-01 prod holds **482** such rows: satellitetoday 124,
+      defensenews 110, nasaspaceflight 59, breakingdefense 49, gnews 43,
+      nasa 31, spacenews 28. These are discovered URLs we will never
+      ingest under current logic.
+      Observed live: a `local-ingest-blocked.sh` run hit 403 on all 10
+      nasaspaceflight articles (burst rate-limiting — the same URLs
+      return 200 on spaced single requests), and every one is now
+      permanently stuck.
+      Fix needs a retry policy, not a blanket re-fetch: reset to
+      `discovered` when `status='failed'` and the failure looks transient
+      (HTTP 403/429/5xx/timeout) and `fetched_at` is older than N days,
+      with an attempt counter so permanently-dead URLs stop being retried.
+      Guard the cost — 482 re-fetches plus extraction is not free.
+
+- [ ] **Per-source rate limits.** `--rate-limit-secs` is global, but
+      nasaspaceflight 403s a 1.5s-spaced burst of 10 while tolerating
+      spaced single requests. A per-source override in `sources.yaml`
+      would let the polite sources stay fast.
+
 ## P2 — broader source coverage
 
 ### Discovery (new article surfaces beyond polling known feeds)
