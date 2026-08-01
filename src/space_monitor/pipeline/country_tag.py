@@ -162,9 +162,19 @@ def persist(conn: sqlite3.Connection, article_id: int, result: TagResult) -> int
         conn.commit()
         return 0
     now = datetime.now(timezone.utc).isoformat()
+    # The output schema can't enforce uniqueness (Anthropic's validator rejects
+    # uniqueItems), so the model may name the same country twice — usually once
+    # 'central' and once 'mentioned'. news_article_country is keyed on
+    # (article_id, country), so an un-deduped batch fails the whole insert and
+    # the article ends up with no tags at all. Collapse to one row per country,
+    # keeping 'central' when the model gave both.
+    best: dict[str, str] = {}
+    for country, centrality in result.countries:
+        if best.get(country) != "central":
+            best[country] = centrality
     rows = [
         (article_id, country, centrality, now, result.model)
-        for country, centrality in result.countries
+        for country, centrality in best.items()
     ]
     conn.executemany(
         "INSERT INTO news_article_country "

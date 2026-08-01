@@ -355,7 +355,12 @@ def _ingest_one(conn: sqlite3.Connection, source, args: argparse.Namespace) -> _
 
         if result.status == "failed":
             t.failed += 1
-            print(f"       fetch failed (id={result.article_id})")
+            reason_row = conn.execute(
+                "SELECT failure_reason FROM news_article WHERE id = ?",
+                (result.article_id,),
+            ).fetchone()
+            reason = (reason_row[0] if reason_row else None) or "unknown"
+            print(f"       fetch failed (id={result.article_id}) — {reason}")
             continue
         if result.status == "extracted":
             print(f"       skip — already extracted (id={result.article_id})")

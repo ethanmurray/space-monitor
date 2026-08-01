@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Ingest sources that are blocked from GitHub Actions IPs but reachable
-# from this machine (Cloudflare blocks GH IP ranges for spacenews,
-# satellitetoday). Drives the same ingest CLI as the daily-ingest GH
-# Actions workflow, just for the blocked subset.
+# from this machine (Cloudflare and similar block GH IP ranges). Drives the
+# same ingest CLI as the daily-ingest GH Actions workflow, just for the
+# blocked subset.
+#
+# Symptom that a source belongs here: the daily workflow reports 403 on the
+# feed, or discovers candidates but fails every body fetch, while the same
+# URL returns 200 from this machine.
 #
 # Wire into cron (one-time setup):
 #   crontab -e
@@ -38,7 +42,9 @@ if ! flock -n 9; then
   exit 0
 fi
 
-SOURCES=(spacenews satellitetoday)
+# Verified 2026-08-01: all of these return 200 from a residential IP but 403
+# (or a silent body-fetch failure) from GitHub Actions runner IPs.
+SOURCES=(spacenews satellitetoday nasaspaceflight uae)
 
 {
   echo "===== $(date -u +'%Y-%m-%dT%H:%M:%SZ') local-ingest start (sources: ${SOURCES[*]}) ====="
