@@ -315,7 +315,8 @@ sources:
     workbook_tally: 33
     description: JAXA — Japanese Aerospace Exploration Agency
     coverage_focus: Japan
-    comment: global.jaxa.jp is CloudFront-blocked from every IP we've tried.
+    comment: >-
+      global.jaxa.jp is CloudFront-blocked from every IP we've tried.
       Workaround: humans-in-space.jaxa.jp/en/news/<year>/ subdomain works
       from regular browsers and surfaces JAXA-NASA, JAXA-ISRO LUPEX,
       Kibo-ABC partnership content. Backfilled via Chrome MCP.
@@ -638,11 +639,14 @@ sources:
     type: manual
     description: LSA — Luxembourg Space Agency
     coverage_focus: Luxembourg, asteroid mining, EU space-resources policy
-    comment: News at /en/news-events.html. Reachable from local IPs.
-      215+ articles in archive. High partnership signal —
-      Luxembourg-ESA-Trillium Tech-Google Cloud Lunar-FM, ESA Civil
-      Security from Space, EU Space Act standardization. Backfilled
-      via Chrome MCP.
+    comment: >-
+      BROKEN as of 2026-08-01 — site restructured. /en/news-events/news.html
+      and /en/news-events.html now render a stub with zero article links
+      (no /en/news-events/news/<year>/ hrefs in 67KB of HTML, no XHR
+      feed, sitemap.xml 404s). The 14 articles in the DB came from the
+      old structure. Needs a new recipe before it can be refreshed.
+      Historically high partnership signal — Luxembourg-ESA-Trillium
+      Tech-Google Cloud Lunar-FM, ESA Civil Security from Space.
 
   - name: uksa
     domain: gov.uk/government/organisations/uk-space-agency
@@ -651,9 +655,14 @@ sources:
     description: UK Space Agency (subset of govuk RSS — direct news page
       surfaces UKSA-specific releases more reliably)
     coverage_focus: UK civil + commercial space, partnerships
-    comment: govuk RSS already catches UKSA items but with prefilter
-      churn. Direct page is more curated. Includes UK-Ukraine landmark
-      MoU (2026-03), Scottish-SpaceX Transporter-16, ESA GSTP funding.
+    comment: >-
+      REDUNDANT — source-health flags this but the content is already
+      being ingested. The govuk adapter polls
+      gov.uk/search/news-and-communications.atom, the general gov.uk
+      feed, which carries UKSA releases; verified 2026-08-01 that
+      source='govuk' holds the same "How we protected the UK and space"
+      series that lands here. Its staleness is a false positive — treat
+      as covered by govuk rather than refreshing separately.
 
   - name: csis_aerospace
     domain: aerospace.csis.org
@@ -713,9 +722,14 @@ sources:
     description: MBRSC — Mohammed Bin Rashid Space Centre (UAE)
     coverage_focus: UAE space programs (Mars Hope, Emirates Lunar
       Mission, MBZ-SAT, astronauts)
-    comment: UAE main space agency. Different from blocked space.gov.ae.
-      Etihad-SAT (UAE-South Korea Satrec partnership), MBRSC-SpaceData
-      (Tokyo) digital twin, MBRSC-Azercosmos (Azerbaijan), Kibo-RPC.
+    comment: >-
+      BROKEN as of 2026-08-01 — site rebuilt with no news section at all.
+      Nav is now only Home / About / Missions and Projects / Contact Us;
+      /news/ and /news-and-events/ both 404. That is why nothing has
+      landed since 2025-03-19. The 16 rows in the DB are from the old
+      site. Find where MBRSC comms moved before reviving this.
+      Historically: Etihad-SAT (UAE-South Korea Satrec partnership),
+      MBRSC-SpaceData (Tokyo) digital twin, MBRSC-Azercosmos, Kibo-RPC.
 
   - name: conae
     domain: argentina.gob.ar/ciencia/conae
